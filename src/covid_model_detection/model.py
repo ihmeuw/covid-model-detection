@@ -1,4 +1,4 @@
-from typing import List, Tuple
+from typing import List, Tuple, Dict
 import pandas as pd
 import numpy as np
 
@@ -9,7 +9,8 @@ from covid_model_detection.utils import expit
 def idr_model(model_data: pd.DataFrame,
               indep_var: str,
               indep_var_se: str,
-              dep_vars: List[str]) -> Tuple[MRBRT, pd.Series, pd.Series]:
+              dep_vars: List[str],
+              inlier_pct: float = 0.9) -> Tuple[MRBRT, pd.Series, pd.Series]:
     mr_data = MRData(
         obs=model_data[indep_var].values,
         obs_se=model_data[indep_var_se].values,
@@ -19,7 +20,7 @@ def idr_model(model_data: pd.DataFrame,
 
     cov_models = [LinearCovModel(dep_var, use_re=dep_var=='intercept') for dep_var in dep_vars]
 
-    mr_model = MRBRT(mr_data, cov_models, 0.9)
+    mr_model = MRBRT(mr_data, cov_models, inlier_pct=inlier_pct)
     mr_model.fit_model(outer_max_iter=500)
 
     fixed_effects = pd.Series(
@@ -46,13 +47,19 @@ def idr_model(model_data: pd.DataFrame,
 
 def predict(all_data: pd.DataFrame,
             fixed_effects: pd.Series, random_effects: pd.Series,
+            pred_replace_dict: Dict,
             indep_var: str,
             dep_vars: List[str], **kwargs) -> pd.Series:
+    keep_vars = list(pred_replace_dict.keys()) + dep_vars
+    if len(set(keep_vars)) != len(keep_vars):
+        raise ValueError('Duplicate in replace_var + dep_vars.')
     pred_data = (all_data
-                 .loc[:, ['location_id', 'date'] + dep_vars]
+                 .loc[:, ['location_id', 'date'] + keep_vars]
                  .drop_duplicates()
                  .set_index(['location_id', 'date'])
                  .sort_index())
+    pred_data = pred_data.drop(list(pred_replace_dict.values()), axis=1)
+    pred_data = pred_data.rename(columns=pred_replace_dict)
     pred_data_fe = (pred_data
                     .multiply(fixed_effects)
                     .sum(axis=1)
