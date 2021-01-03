@@ -117,18 +117,26 @@ def load_testing(testing_root: Path) -> pd.DataFrame:
     raw_data = (raw_data.groupby('location_id', as_index=False)
                 .apply(lambda x: fill_dates(x, ['cumulative_tests_raw']))
                 .reset_index(drop=True))
+    raw_data['daily_tests_raw'] = (raw_data
+                                   .groupby('location_id')['cumulative_tests_raw']
+                                   .apply(lambda x: x.diff())
+                                   .fillna(raw_data['cumulative_tests_raw']))
     
     data = pd.read_csv(testing_root / 'forecast_raked_test_pc_simple.csv')
     data['date'] = pd.to_datetime(data['date'])
     data = data.sort_values(['location_id', 'date']).reset_index(drop=True)
-    data['cumulative_tests'] = data.groupby('location_id')['test_pc'].cumsum() * data['population']
+    data['daily_tests'] = data['test_pc'] * data['population']
+    data['cumulative_tests'] = data.groupby('location_id')['daily_tests'].cumsum()
     data = data.merge(raw_data, how='left')
     
     first_date_data = pd.read_csv(testing_root / 'first_case_date.csv')
     first_date_data['first_case_date'] = pd.to_datetime(first_date_data['first_case_date'])
     data = data.merge(first_date_data)
     data['case_days'] = (data['date'] - data['first_case_date']).dt.days + 1
-    data = data.loc[:, ['location_id', 'date', 'cumulative_tests', 'case_days']]
+    data = data.loc[:, ['location_id', 'date',
+                        'daily_tests_raw', 'daily_tests',
+                        'cumulative_tests_raw', 'cumulative_tests',
+                        'case_days']]
     
     return data
 
@@ -171,7 +179,7 @@ def prepare_model_data(hierarchy: pd.DataFrame,
                        sero_days: int,
                        indep_var: str = 'logit_idr',
                        indep_var_se: str = 'logit_idr_se',
-                       dep_vars: List[str] = ['intercept', 'log_average_daily_testing_rate']) -> pd.DataFrame:    
+                       dep_vars: List[str] = ['intercept', 'log_avg_daily_testing_rate']) -> pd.DataFrame:
     data = reduce(lambda x, y: pd.merge(x, y, how='outer'), [case_data, test_data, pop_data])
     md_locations = hierarchy.loc[hierarchy['most_detailed'] == 1, 'location_id'].to_list()
     data = data.loc[data['location_id'].isin(md_locations)]
@@ -184,8 +192,8 @@ def prepare_model_data(hierarchy: pd.DataFrame,
     
     data['cumulative_case_rate'] = data['cumulative_cases'] / data['population']
     
-    data['testing_rate'] = data['cumulative_tests'] / data['population']
-    data['log_average_daily_testing_rate'] = np.log(data['cumulative_tests'] / (data['population'] * data['case_days']))
+    data['log_avg_daily_testing_rate'] = np.log(data['cumulative_tests'] / (data['population'] * data['case_days']))
+    data['log_daily_testing_rate'] = np.log(data['daily_tests'] / data['population'])
     
     data['idr'] = data['cumulative_case_rate'] / data['seroprev_mean']
     data['idr_se'] = se_from_ss(data['idr'], (data['seroprev_mean'] * data['sample_size']))
@@ -197,11 +205,11 @@ def prepare_model_data(hierarchy: pd.DataFrame,
     no_nan = data[need_vars].notnull().all(axis=1)
     all_data = data.copy()
     data = data.loc[no_nan, ['nid'] + need_vars]
-    data = data.sort_values(['location_id', 'nid', 'date']).reset_index(drop=True)
+    data = data.sort_values(['location_id', 'date', 'nid']).reset_index(drop=True)
     
     has_date = all_data['date'].notnull()
     all_data = all_data.loc[has_date]
-    all_data = all_data.sort_values(['location_id', 'nid', 'date']).reset_index(drop=True)
+    all_data = all_data.sort_values(['location_id', 'date', 'nid']).reset_index(drop=True)
     
     logger.info(f'Final observation count: {len(data)}')
     
