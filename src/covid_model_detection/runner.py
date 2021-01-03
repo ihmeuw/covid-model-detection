@@ -24,7 +24,7 @@ def main(app_metadata: cli_tools.Metadata,
     
     var_args = {'indep_var': 'logit_idr',
                 'indep_var_se': 'logit_idr_se',
-                'dep_vars': ['intercept', 'log_average_daily_testing_rate']}
+                'dep_vars': ['intercept', 'log_avg_daily_testing_rate']}
     
     all_data, model_data = data.prepare_model_data(
         hierarchy=hierarchy,
@@ -41,7 +41,7 @@ def main(app_metadata: cli_tools.Metadata,
     pred_idr = model.predict(all_data, fixed_effects, random_effects, **var_args)
     
     data_out = output_root / 'all_data.csv'
-    all_data.reset_index().to_csv(data_out, index=False)
+    all_data.to_csv(data_out, index=False)
     
     model_out = output_root / 'idr_model.pkl'
     with model_out.open('wb') as file:

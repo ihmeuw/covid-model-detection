@@ -171,7 +171,7 @@ def prepare_model_data(hierarchy: pd.DataFrame,
                        sero_days: int,
                        indep_var: str = 'logit_idr',
                        indep_var_se: str = 'logit_idr_se',
-                       dep_vars: List[str] = ['intercept', 'log_average_daily_testing_rate']) -> pd.DataFrame:    
+                       dep_vars: List[str] = ['intercept', 'log_avg_daily_testing_rate']) -> pd.DataFrame:
     data = reduce(lambda x, y: pd.merge(x, y, how='outer'), [case_data, test_data, pop_data])
     md_locations = hierarchy.loc[hierarchy['most_detailed'] == 1, 'location_id'].to_list()
     data = data.loc[data['location_id'].isin(md_locations)]
@@ -184,8 +184,7 @@ def prepare_model_data(hierarchy: pd.DataFrame,
     
     data['cumulative_case_rate'] = data['cumulative_cases'] / data['population']
     
-    data['testing_rate'] = data['cumulative_tests'] / data['population']
-    data['log_average_daily_testing_rate'] = np.log(data['cumulative_tests'] / (data['population'] * data['case_days']))
+    data['log_avg_daily_testing_rate'] = np.log(data['cumulative_tests'] / (data['population'] * data['case_days']))
     
     data['idr'] = data['cumulative_case_rate'] / data['seroprev_mean']
     data['idr_se'] = se_from_ss(data['idr'], (data['seroprev_mean'] * data['sample_size']))
