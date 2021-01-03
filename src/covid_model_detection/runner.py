@@ -40,8 +40,10 @@ def main(app_metadata: cli_tools.Metadata,
     )
     
     mr_model, fixed_effects, random_effects = model.idr_model(model_data=model_data, **var_args)
-    pred_idr_model_space = model.predict(all_data, fixed_effects, random_effects, {}, **var_args)
     pred_idr = model.predict(all_data, fixed_effects, random_effects, pred_replace_dict, **var_args)
+    
+    pred_idr_model_space = model.predict(all_data, fixed_effects, random_effects, {}, **var_args)
+    all_data = all_data.merge(pred_idr_model_space.rename('pred_idr_model_space').reset_index())
     
     data_out = output_root / 'all_data.csv'
     all_data.to_csv(data_out, index=False)
@@ -52,4 +54,3 @@ def main(app_metadata: cli_tools.Metadata,
     
     pred_out = output_root / 'pred_idr.csv'
     pred_idr.reset_index().to_csv(pred_out, index=False)
-    

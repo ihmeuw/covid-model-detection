@@ -79,4 +79,3 @@ def predict(all_data: pd.DataFrame,
         raise ValueError('Unexpected transformation of IDR in model; cannot predict.')
     
     return pred_data
-    
