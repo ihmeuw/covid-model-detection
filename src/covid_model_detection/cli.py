@@ -59,9 +59,7 @@ def run_idr(run_metadata,
     main = cli_tools.monitor_application(runner.main, logger, with_debugger)
     app_metadata, _ = main(model_inputs_root, testing_root, run_directory, n_draws)
 
-    run_metadata['app_metadata'] = app_metadata.to_dict()
-    run_metadata.dump(run_directory / paths.METADATA_FILE_NAME)
-
-    cli_tools.make_links(app_metadata, run_directory, mark_dir_as_best, production_tag)
+    cli_tools.finish_application(run_metadata, app_metadata, run_directory,
+                                 mark_dir_as_best, production_tag)
 
     logger.info('**Done**')
