@@ -23,9 +23,9 @@ def main(app_metadata: cli_tools.Metadata,
     case_data = data.load_cases(model_inputs_root)
     test_data = data.load_testing(testing_root)
     
-    var_args = {'indep_var': 'logit_idr',
-                'indep_var_se': 'logit_idr_se',
-                'dep_vars': ['intercept', 'log_avg_daily_testing_rate']}
+    var_args = {'dep_var': 'logit_idr',
+                'dep_var_se': 'logit_idr_se',
+                'indep_vars': ['intercept', 'log_avg_daily_testing_rate']}
     pred_replace_dict = {'log_daily_testing_rate': 'log_avg_daily_testing_rate'}
     
     all_data, model_data = data.prepare_model_data(

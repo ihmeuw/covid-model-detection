@@ -9,6 +9,7 @@ from loguru import logger
 
 from covid_model_detection.utils import ss_from_ci, se_from_ss, linear_to_logit
 
+
 def load_serosurveys(model_inputs_root: Path) -> pd.DataFrame:
     '''
     COLUMNS:
@@ -177,9 +178,9 @@ def prepare_model_data(hierarchy: pd.DataFrame,
                        pop_data: pd.DataFrame,
                        pcr_days: int,
                        sero_days: int,
-                       indep_var: str = 'logit_idr',
-                       indep_var_se: str = 'logit_idr_se',
-                       dep_vars: List[str] = ['intercept', 'log_avg_daily_testing_rate']) -> pd.DataFrame:
+                       dep_var: str = 'logit_idr',
+                       dep_var_se: str = 'logit_idr_se',
+                       indep_vars: List[str] = ['intercept', 'log_avg_daily_testing_rate']) -> pd.DataFrame:
     data = reduce(lambda x, y: pd.merge(x, y, how='outer'), [case_data, test_data, pop_data])
     md_locations = hierarchy.loc[hierarchy['most_detailed'] == 1, 'location_id'].to_list()
     data = data.loc[data['location_id'].isin(md_locations)]
@@ -201,7 +202,7 @@ def prepare_model_data(hierarchy: pd.DataFrame,
     data['intercept'] = 1
 
     data = data.replace((-np.inf, np.inf), np.nan)
-    need_vars = ['location_id', 'date', indep_var, indep_var_se] + dep_vars
+    need_vars = ['location_id', 'date', dep_var, dep_var_se] + indep_vars
     no_nan = data[need_vars].notnull().all(axis=1)
     all_data = data.copy()
     data = data.loc[no_nan, ['nid'] + need_vars]
