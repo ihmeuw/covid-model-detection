@@ -24,7 +24,8 @@ def load_serosurveys(model_inputs_root: Path) -> pd.DataFrame:
     logger.info(f'Initial observation count: {len(data)}')
 
     # date formatting
-    data['date'] = data['date'].str.replace('.202$|.2021$', '.2020')
+    data['date'] = data['date'].str.replace('.202$', '.2020')
+    data.loc[(data['location_id'] == 570) & (data['date'] == '11.08.2021'), 'date'] = '11.08.2020'
     data.loc[data['date'] == '05.21.2020', 'date'] = '21.05.2020'
     data['date'] = pd.to_datetime(data['date'], format='%d.%m.%Y')
 
