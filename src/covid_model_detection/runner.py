@@ -45,8 +45,11 @@ def main(app_metadata: cli_tools.Metadata,
     pred_idr_model_space = model.predict(all_data, fixed_effects, random_effects, {}, **var_args)
     all_data = all_data.merge(pred_idr_model_space.rename('pred_idr_model_space').reset_index())
     
-    full_sero_path = output_root / 'full_sero_data.csv'
-    full_sero_data.to_csv(full_sero_path, index=False)
+    sero_path = output_root / 'sero_data.csv'
+    full_sero_data.to_csv(sero_path, index=False)
+    
+    test_path = output_root / 'test_data.csv'
+    test_data.to_csv(test_path, index=False)
     
     data_path = output_root / 'all_data.csv'
     all_data.to_csv(data_path, index=False)
