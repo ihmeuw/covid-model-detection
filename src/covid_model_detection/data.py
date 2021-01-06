@@ -24,7 +24,8 @@ def load_serosurveys(model_inputs_root: Path) -> pd.DataFrame:
     logger.info(f'Initial observation count: {len(data)}')
 
     # date formatting
-    data['date'] = data['date'].str.replace('.202$|.2021$', '.2020')
+    data['date'] = data['date'].str.replace('.202$', '.2020')
+    data.loc[(data['location_id'] == 570) & (data['date'] == '11.08.2021'), 'date'] = '11.08.2020'
     data.loc[data['date'] == '05.21.2020', 'date'] = '21.05.2020'
     data['date'] = pd.to_datetime(data['date'], format='%d.%m.%Y')
 
@@ -37,20 +38,27 @@ def load_serosurveys(model_inputs_root: Path) -> pd.DataFrame:
     data['seroprev_upper'] = data['upper'] / 100
     data['sample_size'] = data['sample_size'].replace(('unchecked', 'not specified'), np.nan).astype(float)
     
-    # only keep geo_accordance data ("nationally representative" ?)
-    is_representative = data['geo_accordance'] == '1'
-    start_len = len(data)
-    data = data[is_representative]
-    end_len = len(data)
-    logger.info(f'Dropping {start_len - end_len} rows from sero data due to not having `geo_accordance`.')
-    del start_len, end_len
-    data['correction_status'] == data['correction_status'].replace('unchecked', '0').astype(int)
-    
     ## ## ## ## ## ## ## ## ## ## ## ## ## ## ##
     ## SOME THINGS
-    # 1) 
+    # 1)
+    #    Question: How to get complete SS?
+    #    Current approach: CI -> SE -> SS where possible; fill with min(SS) where we also don't have CI (very few rows).
+    #    Final solution: ...
+    ss = ss_from_ci(data['seroprev_mean'], data['seroprev_lower'], data['seroprev_upper'])
+    n_missing_ss = (data['sample_size'].isnull() & ss.notnull()).sum()
+    n_missing_ss_ci = (data['sample_size'].isnull() & ss.isnull()).sum()
+    data['sample_size'] = data['sample_size'].fillna(ss)
+    data['sample_size'] = data['sample_size'].fillna(data['sample_size'].min())
+    logger.info(f'Inferring sample size from CI for {n_missing_ss} studies; '
+                f'filling missing sample size with min observed for {n_missing_ss_ci} that also do not report CI.')
+    del n_missing_ss, n_missing_ss_ci
+    
+    # OBSERVATION DROPS FOLLOW - preserve full dataset here.
+    full_data = data.copy()
+    
+    # 2)
     #    Question: What if survey is only in adults? Only kids?
-    #    Current approach: Drop at some threshold age
+    #    Current approach: Drop beyond some threshold limits.
     #    Final solution: ...
     max_start_age = 20
     min_end_age = 60
@@ -63,20 +71,18 @@ def load_serosurveys(model_inputs_root: Path) -> pd.DataFrame:
     logger.info(f'Dropping {start_len - end_len} rows from sero data due to not having enough '
                 f'age coverage (at least ages {max_start_age} to {min_end_age}).')
     del start_len, end_len
-
-
-    # 2) 
-    #    Question: How to get complete SS?
-    #    Current approach: CI -> SE -> SS where possible; fill with min(SS) where we also don't have CI (very few rows).
+    
+    # 3)
+    #    Question: Use of geo_accordance?
+    #    Current approach: Drop non-represeentative (geo_accordance == 0).
     #    Final solution: ...
-    ss = ss_from_ci(data['seroprev_mean'], data['seroprev_lower'], data['seroprev_upper'])
-    n_missing_ss = (data['sample_size'].isnull() & ss.notnull()).sum()
-    n_missing_ss_ci = (data['sample_size'].isnull() & ss.isnull()).sum()
-    data['sample_size'] = data['sample_size'].fillna(ss)
-    data['sample_size'] = data['sample_size'].fillna(data['sample_size'].min())
-    logger.info(f'Inferring sample size from CI for {n_missing_ss} studies; '
-                f'filling missing sample size with min observed for {n_missing_ss_ci} that also do not report CI.')
-    del n_missing_ss, n_missing_ss_ci
+    is_representative = data['geo_accordance'] == '1'
+    start_len = len(data)
+    data = data[is_representative]
+    end_len = len(data)
+    logger.info(f'Dropping {start_len - end_len} rows from sero data due to not having `geo_accordance`.')
+    del start_len, end_len
+    data['correction_status'] == data['correction_status'].replace('unchecked', '0').astype(int)
     ## ## ## ## ## ## ## ## ## ## ## ## ## ## ##
 
     keep_columns = ['nid', 'location_id', 'date',
@@ -87,7 +93,11 @@ def load_serosurveys(model_inputs_root: Path) -> pd.DataFrame:
             .sort_values(['location_id', 'date'])
             .reset_index(drop=True))
     
-    return data
+    full_data = (full_data
+                 .sort_values(['location_id', 'date'])
+                 .reset_index(drop=True))
+    
+    return data, full_data
 
 
 def load_cases(model_inputs_root:Path) -> pd.DataFrame:

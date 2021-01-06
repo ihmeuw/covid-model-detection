@@ -19,7 +19,7 @@ def main(app_metadata: cli_tools.Metadata,
          output_root: Path, n_draws: int):
     hierarchy = data.load_hierarchy(model_inputs_root)
     pop_data = data.load_population(model_inputs_root)
-    sero_data = data.load_serosurveys(model_inputs_root)
+    full_sero_data, sero_data = data.load_serosurveys(model_inputs_root)
     case_data = data.load_cases(model_inputs_root)
     test_data = data.load_testing(testing_root)
     
@@ -45,12 +45,15 @@ def main(app_metadata: cli_tools.Metadata,
     pred_idr_model_space = model.predict(all_data, fixed_effects, random_effects, {}, **var_args)
     all_data = all_data.merge(pred_idr_model_space.rename('pred_idr_model_space').reset_index())
     
-    data_out = output_root / 'all_data.csv'
-    all_data.to_csv(data_out, index=False)
+    full_sero_path = output_root / 'full_sero_data.csv'
+    full_sero_data.to_csv(full_sero_path, index=False)
     
-    model_out = output_root / 'idr_model.pkl'
-    with model_out.open('wb') as file:
-        pickle.dump(mr_model, file, -1)
+    data_path = output_root / 'all_data.csv'
+    all_data.to_csv(data_path, index=False)
     
-    pred_out = output_root / 'pred_idr.csv'
-    pred_idr.reset_index().to_csv(pred_out, index=False)
+    model_path = output_root / 'idr_model.pkl'
+    with model_path.open('wb') as file:
+        pickle.dump((mr_model, fixed_effects, random_effects), file, -1)
+    
+    pred_path = output_root / 'pred_idr.csv'
+    pred_idr.reset_index().to_csv(pred_path, index=False)
