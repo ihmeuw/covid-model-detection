@@ -72,7 +72,6 @@ def load_serosurveys(model_inputs_root: Path) -> pd.DataFrame:
                 f'age coverage (at least ages {max_start_age} to {min_end_age}).')
     del start_len, end_len
     
-    
     # 3)
     #    Question: Use of geo_accordance?
     #    Current approach: Drop non-represeentative (geo_accordance == 0).
