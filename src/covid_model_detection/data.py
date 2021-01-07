@@ -195,6 +195,7 @@ def prepare_model_data(hierarchy: pd.DataFrame,
     md_locations = hierarchy.loc[hierarchy['most_detailed'] == 1, 'location_id'].to_list()
     data = data.loc[data['location_id'].isin(md_locations)]
 
+    sero_data = sero_data.copy()
     if sero_days > pcr_days:
         sero_data['date'] -= pd.Timedelta(days=sero_days - pcr_days)
     elif sero_days < pcr_days:
