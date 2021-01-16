@@ -205,7 +205,6 @@ def prepare_model_data(hierarchy: pd.DataFrame,
     elif sero_days < pcr_days:
         sero_data['date'] += pd.Timedelta(days=pcr_days - sero_days)
     data = sero_data.merge(data, how='outer')
-    import pdb; pdb.set_trace()
     
     data['cumulative_case_rate'] = data['cumulative_cases'] / data['population']
     
