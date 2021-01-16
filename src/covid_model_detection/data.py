@@ -10,7 +10,8 @@ from loguru import logger
 from covid_model_detection.utils import ss_from_ci, se_from_ss, linear_to_logit
 
 
-def load_serosurveys(model_inputs_root: Path) -> pd.DataFrame:
+def load_serosurveys(model_inputs_root: Path,
+                     snapshot_root: Path = Path('/ihme/covid-19/snapshot-data/best')) -> pd.DataFrame:
     '''
     COLUMNS:
         'nid', 'location_id', 'location', 'date', 'survey_series', 'value',
@@ -19,7 +20,7 @@ def load_serosurveys(model_inputs_root: Path) -> pd.DataFrame:
         'geo_accordance', 'source_population', 'notes', 'link'
     '''
     # load
-    data = pd.read_csv('/ihme/covid-19/snapshot-data/best/covid_onedrive/Serological studies/global_serology_summary.csv',
+    data = pd.read_csv(snapshot_root / 'covid_onedrive' / 'Serological studies' / 'global_serology_summary.csv',
                        encoding='latin1')
     logger.info(f'Initial observation count: {len(data)}')
 
