@@ -210,6 +210,9 @@ def prepare_model_data(hierarchy: pd.DataFrame,
     data['idr'] = data['cumulative_case_rate'] / data['seroprev_mean']
     data['idr_se'] = se_from_ss(data['idr'], (data['seroprev_mean'] * data['sample_size']))
     data['logit_idr'], data['logit_idr_se'] = linear_to_logit(data['idr'], data['idr_se'])
+    # 01/15/21 -- equally weight all points like IFR/IHR models
+    data['idr_se'] = 1
+    data['logit_idr_se'] = 1
     data['intercept'] = 1
 
     data = data.replace((-np.inf, np.inf), np.nan)
