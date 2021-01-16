@@ -97,7 +97,9 @@ def load_serosurveys(model_inputs_root: Path) -> pd.DataFrame:
                  .sort_values(['location_id', 'date'])
                  .reset_index(drop=True))
     
-    return data, full_data
+    logger.info(f'Final observation count: {len(data)}')
+    
+    return full_data, data
 
 
 def load_cases(model_inputs_root:Path) -> pd.DataFrame:
@@ -194,6 +196,8 @@ def prepare_model_data(hierarchy: pd.DataFrame,
     data = reduce(lambda x, y: pd.merge(x, y, how='outer'), [case_data, test_data, pop_data])
     md_locations = hierarchy.loc[hierarchy['most_detailed'] == 1, 'location_id'].to_list()
     data = data.loc[data['location_id'].isin(md_locations)]
+    if not data.set_index(['location_id', 'date']).index.is_unique:
+        raise ValueError('Non-unique location-date values in combination of case + testing + population data.')
 
     sero_data = sero_data.copy()
     if sero_days > pcr_days:
@@ -201,6 +205,7 @@ def prepare_model_data(hierarchy: pd.DataFrame,
     elif sero_days < pcr_days:
         sero_data['date'] += pd.Timedelta(days=pcr_days - sero_days)
     data = sero_data.merge(data, how='outer')
+    import pdb; pdb.set_trace()
     
     data['cumulative_case_rate'] = data['cumulative_cases'] / data['population']
     
@@ -226,6 +231,6 @@ def prepare_model_data(hierarchy: pd.DataFrame,
     all_data = all_data.loc[has_date]
     all_data = all_data.sort_values(['location_id', 'date', 'nid']).reset_index(drop=True)
     
-    logger.info(f'Final observation count: {len(data)}')
+    logger.info(f'Model observations: {len(data)}')
     
     return all_data, data
