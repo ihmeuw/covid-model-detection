@@ -14,7 +14,7 @@ from covid_model_detection.utils import SERO_DAYS, PCR_DAYS
 ##     - aggregate cases/testing? should check # of aggregates in sero data (i.e. country where we model subnat)
 ##     - see justification for every dropped data point
 
-def main(app_metadata: cli_tools.Metadata, 
+def main(app_metadata: cli_tools.Metadata,
          model_inputs_root: Path, testing_root: Path,
          output_root: Path, n_draws: int):
     hierarchy = data.load_hierarchy(model_inputs_root)
