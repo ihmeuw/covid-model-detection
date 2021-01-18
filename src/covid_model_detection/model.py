@@ -10,7 +10,7 @@ def idr_model(model_data: pd.DataFrame,
               dep_var: str,
               dep_var_se: str,
               indep_vars: List[str],
-              inlier_pct: float = 0.9) -> Tuple[MRBRT, pd.Series, pd.Series]:
+              inlier_pct: float = 1.) -> Tuple[MRBRT, pd.Series, pd.Series]:
     mr_data = MRData(
         obs=model_data[dep_var].values,
         obs_se=model_data[dep_var_se].values,
