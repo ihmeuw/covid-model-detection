@@ -136,7 +136,13 @@ def load_testing(testing_root: Path, hierarchy: pd.DataFrame) -> pd.DataFrame:
     data = data.sort_values(['location_id', 'date']).reset_index(drop=True)
     data['daily_tests'] = data['test_pc'] * data['population']
     data['cumulative_tests'] = data.groupby('location_id')['daily_tests'].cumsum()
-    data = data.loc[:, ['location_id', 'date', 'cumulative_tests']]
+    data = (data
+            .loc[:, ['location_id', 'date', 'cumulative_tests']]
+            .sort_values(['location_id', 'date'])
+            .reset_index(drop=True))
+    data = (data.groupby('location_id', as_index=False)
+            .apply(lambda x: fill_dates(x, ['cumulative_tests']))
+            .reset_index(drop=True))
     logger.info('Aggregating testing data.')
     data = aggregate_data_from_md(data, hierarchy, 'cumulative_tests')
     data = data.sort_values(['location_id', 'date']).reset_index(drop=True)
@@ -145,7 +151,6 @@ def load_testing(testing_root: Path, hierarchy: pd.DataFrame) -> pd.DataFrame:
                            .apply(lambda x: x.diff().fillna(x)))
     data = data.sort_values(['location_id', 'date']).reset_index(drop=True)
     data['test_days'] = (data['date'] - data.groupby('location_id')['date'].transform(min)).dt.days + 1
-    data = data.merge(raw_data, how='left')
     
     # this is wildly ineffiicient, fix when less crazy...
     logger.info('Getting average date of test.')
@@ -154,6 +159,7 @@ def load_testing(testing_root: Path, hierarchy: pd.DataFrame) -> pd.DataFrame:
         mean_date_data.append(get_avg_date_of_test(data.loc[data['location_id'] == location_id]))
     mean_date_data = pd.concat(mean_date_data)
     data = data.merge(mean_date_data, how='left')
+    data = data.merge(raw_data, how='left')
     
     data = data.loc[:, ['location_id', 'date',
                         'daily_tests_raw', 'daily_tests',
@@ -164,7 +170,7 @@ def load_testing(testing_root: Path, hierarchy: pd.DataFrame) -> pd.DataFrame:
 
 
 def get_avg_date_of_test(data: pd.DataFrame):
-    if data['daily_tests'].isnull().all():
+    if data['daily_tests'].isnull().any():
         data['avg_date_of_test'] = np.nan
     else:
         data = data.reset_index(drop=True)

@@ -50,6 +50,8 @@ def main(app_metadata: cli_tools.Metadata,
     all_data = all_data.merge(pred_idr_all_data.rename('pred_idr').reset_index())
     all_data = all_data.merge(pred_idr_all_data_model_space.rename(f'pred_idr_{model_space_suffix}').reset_index())
     all_data['in_model'] = all_data['data_id'].isin(model_data['data_id'].to_list()).astype(int)
+    if all_data.loc[all_data['in_model'] == 1, 'avg_date_of_test'].isnull().any():
+        raise ValueError('Unable to identify average testing date for a modeled data point.')
     
     sero_path = output_root / 'sero_data.csv'
     sero_data.to_csv(sero_path, index=False)
