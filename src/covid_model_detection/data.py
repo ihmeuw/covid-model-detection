@@ -40,6 +40,9 @@ def load_serosurveys(model_inputs_root: Path) -> pd.DataFrame:
     data['sample_size'] = data['sample_size'].replace(('unchecked', 'not specified'), np.nan).astype(float)
     
     outliers = []
+    manual_outlier = data['manual_outlier'].fillna(0)
+    outliers.append(manual_outlier)
+    logger.info(f'{manual_outlier.sum()} rows from sero data flagged as outliers in ETL.')
     ## ## ## ## ## ## ## ## ## ## ## ## ## ## ##
     ## SOME THINGS
     # 1)
