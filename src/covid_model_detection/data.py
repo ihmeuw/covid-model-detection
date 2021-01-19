@@ -167,7 +167,7 @@ def get_avg_date_of_test(data: pd.DataFrame):
     if data['daily_tests'].isnull().all():
         data['avg_date_of_test'] = np.nan
     else:
-        data = data.loc[has_cases].sort_values('date').reset_index(drop=True)
+        data = data.reset_index(drop=True)
         mean_test_days = []
         for i in range(len(data)):
             mean_test_days.append(np.average(data.loc[:i, 'test_days'], weights=data.loc[:i,'daily_tests']))
