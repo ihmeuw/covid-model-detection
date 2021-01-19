@@ -89,8 +89,8 @@ def load_serosurveys(model_inputs_root: Path) -> pd.DataFrame:
             .sort_values(['location_id', 'date'])
             .reset_index(drop=True))
     
-    logger.info(f"Final inlier count: {len(data.loc[data['is_outlier'] == 1])}")
-    logger.info(f"Final outlier count: {len(data.loc[data['is_outlier'] == 0])}")
+    logger.info(f"Final inlier count: {len(data.loc[data['is_outlier'] == 0])}")
+    logger.info(f"Final outlier count: {len(data.loc[data['is_outlier'] == 1])}")
     
     return data
 
@@ -143,12 +143,9 @@ def load_testing(testing_root: Path, hierarchy: pd.DataFrame) -> pd.DataFrame:
     data['daily_tests'] = (data
                            .groupby('location_id')['cumulative_tests']
                            .apply(lambda x: x.diff().fillna(x)))
+    data = data.sort_values(['location_id', 'date']).reset_index(drop=True)
+    data['test_days'] = (data['date'] - data.groupby('location_id')['date'].transform(min)).dt.days + 1
     data = data.merge(raw_data, how='left')
-    
-    first_date_data = pd.read_csv(testing_root / 'first_case_date.csv')
-    first_date_data['first_case_date'] = pd.to_datetime(first_date_data['first_case_date'])
-    data = data.merge(first_date_data)
-    data['case_days'] = (data['date'] - data['first_case_date']).dt.days + 1
     
     # this is wildly ineffiicient, fix when less crazy...
     logger.info('Getting average date of test.')
@@ -161,7 +158,7 @@ def load_testing(testing_root: Path, hierarchy: pd.DataFrame) -> pd.DataFrame:
     data = data.loc[:, ['location_id', 'date',
                         'daily_tests_raw', 'daily_tests',
                         'cumulative_tests_raw', 'cumulative_tests',
-                        'case_days', 'avg_date_of_test']]
+                        'test_days', 'avg_date_of_test']]
     
     return data
 
@@ -170,13 +167,12 @@ def get_avg_date_of_test(data: pd.DataFrame):
     if data['daily_tests'].isnull().all():
         data['avg_date_of_test'] = np.nan
     else:
-        has_cases = data['case_days'] > 0
         data = data.loc[has_cases].sort_values('date').reset_index(drop=True)
         mean_test_days = []
         for i in range(len(data)):
-            mean_test_days.append(np.average(data.loc[:i, 'case_days'], weights=data.loc[:i,'daily_tests']))
+            mean_test_days.append(np.average(data.loc[:i, 'test_days'], weights=data.loc[:i,'daily_tests']))
         mean_test_days = [int(np.round(mean_test_day)) for mean_test_day in mean_test_days]
-        mean_test_dates = [data.loc[data['case_days'] == mean_test_day, 'date'].item() for mean_test_day in mean_test_days]
+        mean_test_dates = [data.loc[data['test_days'] == mean_test_day, 'date'].item() for mean_test_day in mean_test_days]
         data['avg_date_of_test'] = mean_test_dates
     
     return data.loc[:, ['location_id', 'date', 'avg_date_of_test']]
@@ -235,16 +231,16 @@ def prepare_model_data(hierarchy: pd.DataFrame,
     
     data['cumulative_case_rate'] = data['cumulative_cases'] / data['population']
     
-    data['log_avg_daily_testing_rate'] = np.log(data['cumulative_tests'] / (data['population'] * data['case_days']))
+    data['log_avg_daily_testing_rate'] = np.log(data['cumulative_tests'] / (data['population'] * data['test_days']))
     data['log_daily_testing_rate'] = np.log(data['daily_tests'] / data['population'])
-    
+        
+    data['intercept'] = 1
     data['idr'] = data['cumulative_case_rate'] / data['seroprev_mean']
     data['idr_se'] = se_from_ss(data['idr'], (data['seroprev_mean'] * data['sample_size']))
     data['logit_idr'], data['logit_idr_se'] = linear_to_logit(data['idr'], data['idr_se'])
     # 01/15/21 -- equally weight all points like IFR/IHR models
     data['idr_se'] = 1
     data['logit_idr_se'] = 1
-    data['intercept'] = 1
 
     data = data.replace((-np.inf, np.inf), np.nan)
     need_vars = ['location_id', 'date', dep_var, dep_var_se] + indep_vars
