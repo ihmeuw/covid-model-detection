@@ -1,10 +1,11 @@
 from pathlib import Path
 import dill as pickle
+from tqdm import tqdm
 
 import pandas as pd
 
 from covid_shared import cli_tools
-from covid_model_detection import data, model
+from covid_model_detection import data, model, idr_floor
 from covid_model_detection.utils import SERO_DAYS, PCR_DAYS
 
 ## TODO:
@@ -13,6 +14,7 @@ from covid_model_detection.utils import SERO_DAYS, PCR_DAYS
 ##     - add bias covariate(s)
 ##     - aggregate cases/testing? should check # of aggregates in sero data (i.e. country where we model subnat)
 ##     - see justification for every dropped data point
+##     - assumption that if data exists at national and subnational, it is not redundant.
 
 def main(app_metadata: cli_tools.Metadata,
          model_inputs_root: Path, testing_root: Path,
@@ -56,7 +58,7 @@ def main(app_metadata: cli_tools.Metadata,
     all_data = all_data.merge(pred_idr_all_data_model_space_fe.rename(f'pred_idr_fe_{model_space_suffix}').reset_index())
     all_data['in_model'] = all_data['data_id'].isin(model_data['data_id'].to_list()).astype(int)
     if all_data.loc[all_data['in_model'] == 1, 'avg_date_of_test'].isnull().any():
-        raise ValueError('Unable to identify average testing date for a modeled data point.')
+        raise ValueError('Unable to identify average testing date for a modeled data point.')    
     
     data_path = output_root / 'all_data.csv'
     all_data.to_csv(data_path, index=False)

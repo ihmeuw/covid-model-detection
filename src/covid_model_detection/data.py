@@ -1,6 +1,7 @@
 from pathlib import Path
 from typing import List
 from functools import reduce
+from tqdm import tqdm
 
 import pandas as pd
 import numpy as np
@@ -164,7 +165,7 @@ def load_testing(testing_root: Path, hierarchy: pd.DataFrame) -> pd.DataFrame:
     # this is wildly ineffiicient, fix when less crazy...
     logger.info('Getting average date of test.')
     mean_date_data = []
-    for location_id in data['location_id'].unique():
+    for location_id in tqdm(data['location_id'].unique()):
         mean_date_data.append(get_avg_date_of_test(data.loc[data['location_id'] == location_id]))
     mean_date_data = pd.concat(mean_date_data)
     data = data.merge(mean_date_data, how='left')
