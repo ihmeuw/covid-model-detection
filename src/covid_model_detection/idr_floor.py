@@ -1,7 +1,8 @@
 from typing import Tuple
+from tqdm import tqdm
+
 import pandas as pd
 import numpy as np
-from tqdm import tqdm
 
 from loguru import logger
 

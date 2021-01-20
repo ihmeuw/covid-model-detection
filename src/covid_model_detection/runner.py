@@ -2,6 +2,7 @@ from pathlib import Path
 import dill as pickle
 
 import pandas as pd
+import numpy as np
 
 from covid_shared import cli_tools
 from covid_model_detection import data, model, idr_floor
