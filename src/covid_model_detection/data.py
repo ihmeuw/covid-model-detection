@@ -79,7 +79,8 @@ def load_serosurveys(model_inputs_root: Path) -> pd.DataFrame:
     #    Question: Use of geo_accordance?
     #    Current approach: Drop non-represeentative (geo_accordance == 0).
     #    Final solution: ...
-    geo_outlier = data['geo_accordance'] != '1'
+    data['geo_accordance'] = data['geo_accordance'].replace(('unchecked', np.nan), '0').astype(int)
+    geo_outlier = data['geo_accordance'] == 0
     outliers.append(geo_outlier)
     logger.info(f'{geo_outlier.sum()} rows from sero data do not have `geo_accordance`.')
     data['correction_status'] == data['correction_status'].replace(('unchecked', np.nan), '0').astype(int)
@@ -87,9 +88,10 @@ def load_serosurveys(model_inputs_root: Path) -> pd.DataFrame:
 
     keep_columns = ['nid', 'location_id', 'date',
                     'seroprev_mean', 'sample_size',
-                    'bias', 'bias_type', 'correction_status',
+                    'bias', 'bias_type',
+                    'correction_status', 'geo_accordance',
                     'is_outlier']
-    data['is_outlier'] = pd.concat(outliers, axis=1).max(axis=1)
+    data['is_outlier'] = pd.concat(outliers, axis=1).max(axis=1).astype(int)
     data = (data
             .loc[:, keep_columns]
             .sort_values(['location_id', 'date'])
