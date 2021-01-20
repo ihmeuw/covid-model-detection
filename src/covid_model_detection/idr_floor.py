@@ -1,4 +1,4 @@
-from pathlib import Tuple
+from typing import Tuple
 import pandas as pd
 import numpy as np
 from tqdm import tqdm
