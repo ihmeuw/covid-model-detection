@@ -91,7 +91,7 @@ def load_serosurveys(model_inputs_root: Path) -> pd.DataFrame:
                     'seroprev_mean', 'sample_size',
                     'bias', 'bias_type',
                     'correction_status', 'geo_accordance',
-                    'is_outlier']
+                    'is_outlier', 'manual_outlier']
     data['is_outlier'] = pd.concat(outliers, axis=1).max(axis=1).astype(int)
     data = (data
             .loc[:, keep_columns]
