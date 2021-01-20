@@ -65,7 +65,7 @@ def main(app_metadata: cli_tools.Metadata,
         serosurveys=all_data.loc[all_data['in_model'] == 1].set_index(['location_id', 'date'])['seroprev_mean'].copy(),
         population=pop_data.set_index('location_id')['population'].copy(),
         hierarchy=hierarchy.copy(),
-        test_range=(1, 9)
+        test_range=(1, 9),
         ceiling=0.7,
     )
     pred_idr *= (idr_floor_data / pred_idr).clip(1, np.inf)
