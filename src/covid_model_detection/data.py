@@ -27,6 +27,7 @@ def load_serosurveys(model_inputs_root: Path) -> pd.DataFrame:
     # date formatting
     data['date'] = data['date'].str.replace('.202$', '.2020')
     data.loc[(data['location_id'] == 570) & (data['date'] == '11.08.2021'), 'date'] = '11.08.2020'
+    data.loc[(data['location_id'] == 533) & (data['date'] == '13.11.2.2020'), 'date'] = '13.11.2020'
     data.loc[data['date'] == '05.21.2020', 'date'] = '21.05.2020'
     data['date'] = pd.to_datetime(data['date'], format='%d.%m.%Y')
 
@@ -38,6 +39,8 @@ def load_serosurveys(model_inputs_root: Path) -> pd.DataFrame:
     data['seroprev_lower'] = data['lower'] / 100
     data['seroprev_upper'] = data['upper'] / 100
     data['sample_size'] = data['sample_size'].replace(('unchecked', 'not specified'), np.nan).astype(float)
+    
+    data['bias'] = data['bias'].replace(('unchecked', 'not specified'), np.nan).astype(float)
     
     outliers = []
     manual_outlier = data['manual_outlier'].fillna(0)
@@ -151,7 +154,8 @@ def load_testing(testing_root: Path, hierarchy: pd.DataFrame) -> pd.DataFrame:
     data = data.sort_values(['location_id', 'date']).reset_index(drop=True)
     data['daily_tests'] = (data
                            .groupby('location_id')['cumulative_tests']
-                           .apply(lambda x: x.diff().fillna(x)))
+                           .apply(lambda x: x.diff()))
+    data = data.dropna()
     data = data.sort_values(['location_id', 'date']).reset_index(drop=True)
     data['test_days'] = (data['date'] - data.groupby('location_id')['date'].transform(min)).dt.days + 1
     
@@ -223,9 +227,9 @@ def prepare_model_data(hierarchy: pd.DataFrame,
                        pop_data: pd.DataFrame,
                        pcr_days: int,
                        sero_days: int,
-                       dep_var: str = 'logit_idr',
-                       dep_var_se: str = 'logit_idr_se',
-                       indep_vars: List[str] = ['intercept', 'log_avg_daily_testing_rate']) -> pd.DataFrame:
+                       dep_var: str,
+                       dep_var_se: str,
+                       indep_vars: List[str], **kwargs) -> pd.DataFrame:
     data = reduce(lambda x, y: pd.merge(x, y, how='outer'), [case_data, test_data, pop_data])
     #md_locations = hierarchy.loc[hierarchy['most_detailed'] == 1, 'location_id'].to_list()
     if not data.set_index(['location_id', 'date']).index.is_unique:
@@ -250,6 +254,12 @@ def prepare_model_data(hierarchy: pd.DataFrame,
     # 01/15/21 -- equally weight all points like IFR/IHR models
     data['idr_se'] = 1
     data['logit_idr_se'] = 1
+    
+    #logger.info('Trimming out low and high testing points.')
+    #data.loc[data['log_avg_daily_testing_rate'] < -7.75, 'is_outlier'] = 1
+    
+    #logger.info('Trimming out low and high IDR points.')
+    #data.loc[data['logit_idr'] < -4, 'is_outlier'] = 1
 
     data = data.replace((-np.inf, np.inf), np.nan)
     need_vars = ['location_id', 'date', dep_var, dep_var_se] + indep_vars
