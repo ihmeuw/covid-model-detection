@@ -74,7 +74,7 @@ def main(app_metadata: cli_tools.Metadata,
     
     sero_path = output_root / 'sero_data.csv'
     sero_data = sero_data.rename(columns={'date':'survey_date'})
-    sero_data['infection_date'] = sero_data['survey_date'] - SERO_DAYS
+    sero_data['infection_date'] = sero_data['survey_date'] - pd.Timedelta(days=SERO_DAYS)
     sero_data.to_csv(sero_path, index=False)
     
     test_path = output_root / 'test_data.csv'
