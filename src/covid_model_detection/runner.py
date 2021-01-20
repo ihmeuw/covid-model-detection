@@ -51,12 +51,26 @@ def main(app_metadata: cli_tools.Metadata,
         all_data, hierarchy, fixed_effects, random_effects,
         {}, **var_args
     )
-    #all_data = all_data.merge(pred_idr_all_data.rename('pred_idr').reset_index())
+    # all_data = all_data.merge(pred_idr_all_data.rename('pred_idr').reset_index())
     all_data = all_data.merge(pred_idr_all_data_model_space.rename(f'pred_idr_{model_space_suffix}').reset_index())
     all_data = all_data.merge(pred_idr_all_data_model_space_fe.rename(f'pred_idr_fe_{model_space_suffix}').reset_index())
     all_data['in_model'] = all_data['data_id'].isin(model_data['data_id'].to_list()).astype(int)
     if all_data.loc[all_data['in_model'] == 1, 'avg_date_of_test'].isnull().any():
         raise ValueError('Unable to identify average testing date for a modeled data point.')
+    
+    data_path = output_root / 'all_data.csv'
+    all_data.to_csv(data_path, index=False)
+    
+    idr_plot_data = all_data.loc[all_data['seroprev_mean'].notnull()].copy()
+    idr_plot_data.loc[idr_plot_data['in_model'] == 0, 'is_outlier'] = 1
+    idr_plot_data.loc[idr_plot_data['seroprev_mean'] == 0, 'idr'] = 1
+    idr_plot_data['idr'] = idr_plot_data['idr'].clip(0, 1)
+    idr_plot_data = (idr_plot_data
+                     .loc[:, ['location_id', 'avg_date_of_test', 'idr', 'is_outlier']]
+                     .reset_index(drop=True))
+    idr_plot_data = idr_plot_data.rename(columns={'avg_date_of_test':'date'})
+    idr_plot_data_path = output_root / 'idr_plot_data.csv'
+    idr_plot_data.to_csv(idr_plot_data_path, index=False)
     
     sero_path = output_root / 'sero_data.csv'
     sero_data = sero_data.rename(columns={'date':'survey_date'})
@@ -65,9 +79,6 @@ def main(app_metadata: cli_tools.Metadata,
     
     test_path = output_root / 'test_data.csv'
     test_data.to_csv(test_path, index=False)
-    
-    data_path = output_root / 'all_data.csv'
-    all_data.to_csv(data_path, index=False)
     
     model_path = output_root / 'idr_model.pkl'
     with model_path.open('wb') as file:
