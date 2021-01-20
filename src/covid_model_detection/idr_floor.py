@@ -1,3 +1,4 @@
+from pathlib import Tuple
 import pandas as pd
 import numpy as np
 from tqdm import tqdm
@@ -10,14 +11,8 @@ def find_idr_floor(idr: pd.Series,
                    serosurveys: pd.Series,
                    population: pd.Series,
                    hierarchy: pd.DataFrame,
+                   test_range: Tuple[int, int],
                    ceiling: float,):
-    '''
-    idr = pred_idr.copy()
-    cumul_cases=case_data.set_index(['location_id', 'date'])['cumulative_cases'].copy()
-    serosurveys = all_data.loc[all_data['in_model'] == 1].set_index(['location_id', 'date'])['seroprev_mean'].copy()
-    population = pop_data.set_index('location_id')['population'].copy()
-    hierarchy = hierarchy.copy()
-    '''
     daily_cases = (cumul_cases
                    .sort_index()
                    .reset_index()
@@ -26,7 +21,7 @@ def find_idr_floor(idr: pd.Series,
     daily_cases = daily_cases.fillna(cumul_cases)
     
     rmse_floor = []
-    for floor in range(1, 11):        
+    for floor in range(*test_range):        
         rmse = test_floor_value(idr=idr,
                                 daily_cases=daily_cases,
                                 serosurveys=serosurveys,

@@ -59,25 +59,26 @@ def main(app_metadata: cli_tools.Metadata,
     if all_data.loc[all_data['in_model'] == 1, 'avg_date_of_test'].isnull().any():
         raise ValueError('Unable to identify average testing date for a modeled data point.')    
         
-    idr_rmse, idr_floor = idr_floor.find_idr_floor(
+    idr_rmse_data, idr_floor_data = idr_floor.find_idr_floor(
         idr=pred_idr.copy(),
         cumul_cases=case_data.set_index(['location_id', 'date'])['cumulative_cases'].copy(),
         serosurveys=all_data.loc[all_data['in_model'] == 1].set_index(['location_id', 'date'])['seroprev_mean'].copy(),
         population=pop_data.set_index('location_id')['population'].copy(),
         hierarchy=hierarchy.copy(),
+        test_range=(1, 9)
         ceiling=0.7,
     )
-    pred_idr *= (idr_floor / pred_idr).clip(1, np.inf)
-    pred_idr_fe *= (idr_floor / pred_idr_fe).clip(1, np.inf)
+    pred_idr *= (idr_floor_data / pred_idr).clip(1, np.inf)
+    pred_idr_fe *= (idr_floor_data / pred_idr_fe).clip(1, np.inf)
     
     data_path = output_root / 'all_data.csv'
     all_data.to_csv(data_path, index=False)
     
     idr_rmse_path = output_root / 'idr_rmse.csv'
-    idr_rmse.to_csv(idr_rmse_path, index=False)
+    idr_rmse_data.to_csv(idr_rmse_path, index=False)
     
     idr_floor_path = output_root / 'idr_floor.csv'
-    idr_floor.reset_index().to_csv(idr_floor_path, index=False)
+    idr_floor_data.reset_index().to_csv(idr_floor_path, index=False)
     
     idr_plot_data = all_data.loc[all_data['seroprev_mean'].notnull()].copy()
     idr_plot_data.loc[idr_plot_data['in_model'] == 0, 'is_outlier'] = 1
