@@ -23,7 +23,7 @@ def main(app_metadata: cli_tools.Metadata,
     pop_data = data.load_population(model_inputs_root)
     sero_data = data.load_serosurveys(model_inputs_root)
     case_data = data.load_cases(model_inputs_root, hierarchy)
-    test_data = data.load_testing(testing_root, hierarchy)
+    test_data = data.load_testing(testing_root, pop_data, hierarchy)
     
     var_args = {'dep_var': 'logit_idr',
                 'dep_var_se': 'logit_idr_se',
