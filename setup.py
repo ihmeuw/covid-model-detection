@@ -24,6 +24,7 @@ if __name__ == "__main__":
         'numpy',
         'pandas',
         'scipy',
+        'tqdm',
         'pyyaml',
         'ipython',
         'jupyter',

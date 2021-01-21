@@ -1,6 +1,7 @@
 from pathlib import Path
 from typing import List
 from functools import reduce
+from tqdm import tqdm
 
 import pandas as pd
 import numpy as np
@@ -8,6 +9,7 @@ import numpy as np
 from loguru import logger
 
 from covid_model_detection.utils import ss_from_ci, se_from_ss, linear_to_logit
+from covid_model_detection.aggregate import aggregate_data_from_md
 
 
 def load_serosurveys(model_inputs_root: Path) -> pd.DataFrame:
@@ -22,10 +24,18 @@ def load_serosurveys(model_inputs_root: Path) -> pd.DataFrame:
     data = pd.read_csv(model_inputs_root / 'serology' / 'global_serology_summary.csv',
                        encoding='latin1')
     logger.info(f'Initial observation count: {len(data)}')
+    
+    logger.debug('MANUALLY MARKING OUTLIERS -- 01/20/2021')
+    ol = pd.read_csv('/ihme/covid-19-2/infection-detection-rate/serology_outliers_2021_01_20.csv')
+    ol['set_outlier'] = 1
+    data = data.merge(ol, how='left')
+    data.loc[data['set_outlier'] == 1, 'manual_outlier'] = 1
+    del data['set_outlier']
 
     # date formatting
     data['date'] = data['date'].str.replace('.202$', '.2020')
     data.loc[(data['location_id'] == 570) & (data['date'] == '11.08.2021'), 'date'] = '11.08.2020'
+    data.loc[(data['location_id'] == 533) & (data['date'] == '13.11.2.2020'), 'date'] = '13.11.2020'
     data.loc[data['date'] == '05.21.2020', 'date'] = '21.05.2020'
     data['date'] = pd.to_datetime(data['date'], format='%d.%m.%Y')
 
@@ -38,6 +48,12 @@ def load_serosurveys(model_inputs_root: Path) -> pd.DataFrame:
     data['seroprev_upper'] = data['upper'] / 100
     data['sample_size'] = data['sample_size'].replace(('unchecked', 'not specified'), np.nan).astype(float)
     
+    data['bias'] = data['bias'].replace(('unchecked', 'not specified'), np.nan).astype(float)
+    
+    outliers = []
+    manual_outlier = data['manual_outlier'].fillna(0)
+    outliers.append(manual_outlier)
+    logger.info(f'{manual_outlier.sum()} rows from sero data flagged as outliers in ETL.')
     ## ## ## ## ## ## ## ## ## ## ## ## ## ## ##
     ## SOME THINGS
     # 1)
@@ -53,9 +69,6 @@ def load_serosurveys(model_inputs_root: Path) -> pd.DataFrame:
                 f'filling missing sample size with min observed for {n_missing_ss_ci} that also do not report CI.')
     del n_missing_ss, n_missing_ss_ci
     
-    # OBSERVATION DROPS FOLLOW - preserve full dataset here.
-    full_data = data.copy()
-    
     # 2)
     #    Question: What if survey is only in adults? Only kids?
     #    Current approach: Drop beyond some threshold limits.
@@ -65,44 +78,40 @@ def load_serosurveys(model_inputs_root: Path) -> pd.DataFrame:
     data[['study_start_age', 'study_end_age']] = data[['study_start_age', 'study_end_age']].replace('not specified', np.nan).astype(float)
     too_old = data['study_start_age'] > 20
     too_young = data['study_end_age'] < min_end_age
-    start_len = len(data)
-    data = data.loc[~too_old  & ~too_young]
-    end_len = len(data)
-    logger.info(f'Dropping {start_len - end_len} rows from sero data due to not having enough '
+    age_outlier = (too_old  | too_young).astype(int)
+    outliers.append(age_outlier)
+    logger.info(f'{age_outlier.sum()} rows from sero data do not have enough '
                 f'age coverage (at least ages {max_start_age} to {min_end_age}).')
-    del start_len, end_len
     
     # 3)
     #    Question: Use of geo_accordance?
     #    Current approach: Drop non-represeentative (geo_accordance == 0).
     #    Final solution: ...
-    is_representative = data['geo_accordance'] == '1'
-    start_len = len(data)
-    data = data[is_representative]
-    end_len = len(data)
-    logger.info(f'Dropping {start_len - end_len} rows from sero data due to not having `geo_accordance`.')
-    del start_len, end_len
-    data['correction_status'] == data['correction_status'].replace('unchecked', '0').astype(int)
+    data['geo_accordance'] = data['geo_accordance'].replace(('unchecked', np.nan), '0').astype(int)
+    geo_outlier = data['geo_accordance'] == 0
+    outliers.append(geo_outlier)
+    logger.info(f'{geo_outlier.sum()} rows from sero data do not have `geo_accordance`.')
+    data['correction_status'] == data['correction_status'].replace(('unchecked', np.nan), '0').astype(int)
     ## ## ## ## ## ## ## ## ## ## ## ## ## ## ##
 
     keep_columns = ['nid', 'location_id', 'date',
                     'seroprev_mean', 'sample_size',
-                    'bias', 'bias_type', 'correction_status']
+                    'bias', 'bias_type',
+                    'correction_status', 'geo_accordance',
+                    'is_outlier', 'manual_outlier']
+    data['is_outlier'] = pd.concat(outliers, axis=1).max(axis=1).astype(int)
     data = (data
             .loc[:, keep_columns]
             .sort_values(['location_id', 'date'])
             .reset_index(drop=True))
     
-    full_data = (full_data
-                 .sort_values(['location_id', 'date'])
-                 .reset_index(drop=True))
+    logger.info(f"Final inlier count: {len(data.loc[data['is_outlier'] == 0])}")
+    logger.info(f"Final outlier count: {len(data.loc[data['is_outlier'] == 1])}")
     
-    logger.info(f'Final observation count: {len(data)}')
-    
-    return full_data, data
+    return data
 
 
-def load_cases(model_inputs_root:Path) -> pd.DataFrame:
+def load_cases(model_inputs_root:Path, hierarchy: pd.DataFrame) -> pd.DataFrame:
     data = pd.read_csv(model_inputs_root / 'output_measures' / 'cases' / 'cumulative.csv')
     data['date'] = pd.to_datetime(data['date'])
     is_all_ages = data['age_group_id'] == 22
@@ -115,11 +124,14 @@ def load_cases(model_inputs_root:Path) -> pd.DataFrame:
             .reset_index(drop=True))
     data = data.dropna()
     data = data.sort_values(['location_id', 'date']).reset_index(drop=True)
+    
+    logger.info('Aggregating case data.')
+    data = aggregate_data_from_md(data, hierarchy, 'cumulative_cases')
 
     return data
 
 
-def load_testing(testing_root: Path) -> pd.DataFrame:
+def load_testing(testing_root: Path, pop_data: pd.DataFrame, hierarchy: pd.DataFrame) -> pd.DataFrame:
     raw_data = pd.read_csv(testing_root / 'data_smooth.csv')
     raw_data['date'] = pd.to_datetime(raw_data['date'])
     raw_data = (raw_data
@@ -138,20 +150,58 @@ def load_testing(testing_root: Path) -> pd.DataFrame:
     data = pd.read_csv(testing_root / 'forecast_raked_test_pc_simple.csv')
     data['date'] = pd.to_datetime(data['date'])
     data = data.sort_values(['location_id', 'date']).reset_index(drop=True)
+    del data['pop']
+    del data['population']
+    data = data.merge(pop_data)
     data['daily_tests'] = data['test_pc'] * data['population']
     data['cumulative_tests'] = data.groupby('location_id')['daily_tests'].cumsum()
+    data = (data
+            .loc[:, ['location_id', 'date', 'cumulative_tests']]
+            .sort_values(['location_id', 'date'])
+            .reset_index(drop=True))
+    data = (data.groupby('location_id', as_index=False)
+            .apply(lambda x: fill_dates(x, ['cumulative_tests']))
+            .reset_index(drop=True))
+    logger.info('Aggregating testing data.')
+    data = aggregate_data_from_md(data, hierarchy, 'cumulative_tests')
+    data = data.sort_values(['location_id', 'date']).reset_index(drop=True)
+    data['daily_tests'] = (data
+                           .groupby('location_id')['cumulative_tests']
+                           .apply(lambda x: x.diff()))
+    data = data.dropna()
+    data = data.sort_values(['location_id', 'date']).reset_index(drop=True)
+    data['test_days'] = (data['date'] - data.groupby('location_id')['date'].transform(min)).dt.days + 1
+    
+    # this is wildly ineffiicient, fix when less crazy...
+    logger.info('Getting average date of test.')
+    mean_date_data = []
+    for location_id in tqdm(data['location_id'].unique()):
+        mean_date_data.append(get_avg_date_of_test(data.loc[data['location_id'] == location_id]))
+    mean_date_data = pd.concat(mean_date_data)
+    data = data.merge(mean_date_data, how='left')
     data = data.merge(raw_data, how='left')
     
-    first_date_data = pd.read_csv(testing_root / 'first_case_date.csv')
-    first_date_data['first_case_date'] = pd.to_datetime(first_date_data['first_case_date'])
-    data = data.merge(first_date_data)
-    data['case_days'] = (data['date'] - data['first_case_date']).dt.days + 1
     data = data.loc[:, ['location_id', 'date',
                         'daily_tests_raw', 'daily_tests',
                         'cumulative_tests_raw', 'cumulative_tests',
-                        'case_days']]
+                        'test_days', 'avg_date_of_test']]
     
     return data
+
+
+def get_avg_date_of_test(data: pd.DataFrame):
+    if data['daily_tests'].isnull().any():
+        data['avg_date_of_test'] = np.nan
+    else:
+        data = data.reset_index(drop=True)
+        mean_test_days = []
+        for i in range(len(data)):
+            mean_test_days.append(np.average(data.loc[:i, 'test_days'], weights=data.loc[:i,'daily_tests']))
+        mean_test_days = [int(np.round(mean_test_day)) for mean_test_day in mean_test_days]
+        mean_test_dates = [data.loc[data['test_days'] == mean_test_day, 'date'].item() for mean_test_day in mean_test_days]
+        data['avg_date_of_test'] = mean_test_dates
+    
+    return data.loc[:, ['location_id', 'date', 'avg_date_of_test']]
 
 
 def fill_dates(data: pd.DataFrame, interp_vars: List[str]) -> pd.DataFrame:
@@ -190,12 +240,11 @@ def prepare_model_data(hierarchy: pd.DataFrame,
                        pop_data: pd.DataFrame,
                        pcr_days: int,
                        sero_days: int,
-                       dep_var: str = 'logit_idr',
-                       dep_var_se: str = 'logit_idr_se',
-                       indep_vars: List[str] = ['intercept', 'log_avg_daily_testing_rate']) -> pd.DataFrame:
+                       dep_var: str,
+                       dep_var_se: str,
+                       indep_vars: List[str], **kwargs) -> pd.DataFrame:
     data = reduce(lambda x, y: pd.merge(x, y, how='outer'), [case_data, test_data, pop_data])
-    md_locations = hierarchy.loc[hierarchy['most_detailed'] == 1, 'location_id'].to_list()
-    data = data.loc[data['location_id'].isin(md_locations)]
+    #md_locations = hierarchy.loc[hierarchy['most_detailed'] == 1, 'location_id'].to_list()
     if not data.set_index(['location_id', 'date']).index.is_unique:
         raise ValueError('Non-unique location-date values in combination of case + testing + population data.')
 
@@ -208,28 +257,37 @@ def prepare_model_data(hierarchy: pd.DataFrame,
     
     data['cumulative_case_rate'] = data['cumulative_cases'] / data['population']
     
-    data['log_avg_daily_testing_rate'] = np.log(data['cumulative_tests'] / (data['population'] * data['case_days']))
+    data['log_avg_daily_testing_rate'] = np.log(data['cumulative_tests'] / (data['population'] * data['test_days']))
     data['log_daily_testing_rate'] = np.log(data['daily_tests'] / data['population'])
-    
+        
+    data['intercept'] = 1
     data['idr'] = data['cumulative_case_rate'] / data['seroprev_mean']
     data['idr_se'] = se_from_ss(data['idr'], (data['seroprev_mean'] * data['sample_size']))
     data['logit_idr'], data['logit_idr_se'] = linear_to_logit(data['idr'], data['idr_se'])
     # 01/15/21 -- equally weight all points like IFR/IHR models
     data['idr_se'] = 1
     data['logit_idr_se'] = 1
-    data['intercept'] = 1
+    
+    #logger.info('Trimming out low and high testing points.')
+    #data.loc[data['log_avg_daily_testing_rate'] < -7.75, 'is_outlier'] = 1
+    
+    #logger.info('Trimming out low and high IDR points.')
+    #data.loc[data['logit_idr'] < -4, 'is_outlier'] = 1
 
     data = data.replace((-np.inf, np.inf), np.nan)
     need_vars = ['location_id', 'date', dep_var, dep_var_se] + indep_vars
-    no_nan = data[need_vars].notnull().all(axis=1)
-    all_data = data.copy()
-    data = data.loc[no_nan, ['nid'] + need_vars]
+    data['is_missing'] = data[need_vars].isnull().any(axis=1).astype(int)
     data = data.sort_values(['location_id', 'date', 'nid']).reset_index(drop=True)
+    data['data_id'] = data.index
     
-    has_date = all_data['date'].notnull()
-    all_data = all_data.loc[has_date]
-    all_data = all_data.sort_values(['location_id', 'date', 'nid']).reset_index(drop=True)
+    is_inlier = data['is_outlier'] == 0
+    has_data = data['is_missing'] == 0
+    model_data = data.loc[is_inlier & has_data, ['nid', 'data_id'] + need_vars].copy()
     
-    logger.info(f'Model observations: {len(data)}')
+    logger.info('Modeling with all national and below data.')
+    model_locations = hierarchy.loc[hierarchy['level'] >= 3, 'location_id'].to_list()
+    model_data = model_data.loc[model_data['location_id'].isin(model_locations)].reset_index(drop=True)
     
-    return all_data, data
+    logger.info(f'Final model observations: {len(model_data)}')
+    
+    return data, model_data
