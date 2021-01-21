@@ -23,7 +23,7 @@ def main(app_metadata: cli_tools.Metadata,
     pop_data = data.load_population(model_inputs_root)
     sero_data = data.load_serosurveys(model_inputs_root)
     case_data = data.load_cases(model_inputs_root, hierarchy)
-    test_data = data.load_testing(testing_root, hierarchy)
+    test_data = data.load_testing(testing_root, pop_data, hierarchy)
     
     var_args = {'dep_var': 'logit_idr',
                 'dep_var_se': 'logit_idr_se',
@@ -66,7 +66,7 @@ def main(app_metadata: cli_tools.Metadata,
         serosurveys=all_data.loc[all_data['in_model'] == 1].set_index(['location_id', 'date'])['seroprev_mean'].copy(),
         population=pop_data.set_index('location_id')['population'].copy(),
         hierarchy=hierarchy.copy(),
-        test_range=(1, 9),
+        test_range=(2, 9),
         ceiling=0.7,
     )
     pred_idr *= (idr_floor_data / pred_idr).clip(1, np.inf)

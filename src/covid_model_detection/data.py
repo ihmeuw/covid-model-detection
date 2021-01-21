@@ -24,6 +24,13 @@ def load_serosurveys(model_inputs_root: Path) -> pd.DataFrame:
     data = pd.read_csv(model_inputs_root / 'serology' / 'global_serology_summary.csv',
                        encoding='latin1')
     logger.info(f'Initial observation count: {len(data)}')
+    
+    logger.debug('MANUALLY MARKING OUTLIERS -- 01/20/2021')
+    ol = pd.read_csv('/ihme/covid-19-2/infection-detection-rate/serology_outliers_2021_01_20.csv')
+    ol['set_outlier'] = 1
+    data = data.merge(ol, how='left')
+    data.loc[data['set_outlier'] == 1, 'manual_outlier'] = 1
+    del data['set_outlier']
 
     # date formatting
     data['date'] = data['date'].str.replace('.202$', '.2020')
@@ -124,7 +131,7 @@ def load_cases(model_inputs_root:Path, hierarchy: pd.DataFrame) -> pd.DataFrame:
     return data
 
 
-def load_testing(testing_root: Path, hierarchy: pd.DataFrame) -> pd.DataFrame:
+def load_testing(testing_root: Path, pop_data: pd.DataFrame, hierarchy: pd.DataFrame) -> pd.DataFrame:
     raw_data = pd.read_csv(testing_root / 'data_smooth.csv')
     raw_data['date'] = pd.to_datetime(raw_data['date'])
     raw_data = (raw_data
@@ -143,6 +150,9 @@ def load_testing(testing_root: Path, hierarchy: pd.DataFrame) -> pd.DataFrame:
     data = pd.read_csv(testing_root / 'forecast_raked_test_pc_simple.csv')
     data['date'] = pd.to_datetime(data['date'])
     data = data.sort_values(['location_id', 'date']).reset_index(drop=True)
+    del data['pop']
+    del data['population']
+    data = data.merge(pop_data)
     data['daily_tests'] = data['test_pc'] * data['population']
     data['cumulative_tests'] = data.groupby('location_id')['daily_tests'].cumsum()
     data = (data
