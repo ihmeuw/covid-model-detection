@@ -24,13 +24,6 @@ def load_serosurveys(model_inputs_root: Path) -> pd.DataFrame:
     data = pd.read_csv(model_inputs_root / 'serology' / 'global_serology_summary.csv',
                        encoding='latin1')
     logger.info(f'Initial observation count: {len(data)}')
-    
-    logger.debug('MANUALLY MARKING OUTLIERS -- 01/20/2021')
-    ol = pd.read_csv('/ihme/covid-19-2/infection-detection-rate/serology_outliers_2021_01_20.csv')
-    ol['set_outlier'] = 1
-    data = data.merge(ol, how='left')
-    data.loc[data['set_outlier'] == 1, 'manual_outlier'] = 1
-    del data['set_outlier']
 
     # date formatting
     data['date'] = data['date'].str.replace('.202$', '.2020')
