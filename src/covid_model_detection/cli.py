@@ -23,7 +23,7 @@ warnings.simplefilter('ignore')
                     'May be a full path or relative to the standard testing root.'))
 @click.option('-o', '--output-root',
               type=click.Path(file_okay=False),
-              #default=paths.IDR_OUTPUT_ROOT,
+              default=paths.INFECTION_DETECTION_RATE_ROOT,
               show_default=True)
 @click.option('--n-draws',
               type=click.INT,
