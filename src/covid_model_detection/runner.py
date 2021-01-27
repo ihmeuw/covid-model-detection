@@ -59,7 +59,7 @@ def main(app_metadata: cli_tools.Metadata,
     all_data['in_model'] = all_data['data_id'].isin(model_data['data_id'].to_list()).astype(int)
     if all_data.loc[all_data['in_model'] == 1, 'avg_date_of_test'].isnull().any():
         raise ValueError('Unable to identify average testing date for a modeled data point.')    
-        
+    
     idr_rmse_data, idr_floor_data = idr_floor.find_idr_floor(
         idr=pred_idr.copy(),
         cumul_cases=case_data.set_index(['location_id', 'date'])['cumulative_cases'].copy(),
