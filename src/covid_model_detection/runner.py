@@ -10,11 +10,8 @@ from covid_model_detection.utils import SERO_DAYS, PCR_DAYS
 
 ## TODO:
 ##     - timeline input (currently saying PCR positive is 11 days and antibody positive is 15)
-##     - confirm `first_case_date.csv` is OK (probably just use earlier of first date of test data or first case date)
 ##     - add bias covariate(s)
-##     - aggregate cases/testing? should check # of aggregates in sero data (i.e. country where we model subnat)
-##     - see justification for every dropped data point
-##     - assumption that if data exists at national and subnational, it is not redundant.
+##     - check aggregation
 
 def main(app_metadata: cli_tools.Metadata,
          model_inputs_root: Path, testing_root: Path,
