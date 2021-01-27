@@ -7,13 +7,29 @@ import numpy as np
 from loguru import logger
 
 
+def manual_floor_setting(rmse: pd.DataFrame,
+                         best_floor: pd.Series,
+                         hierarchy: pd.DataFrame,) -> Tuple[pd.DataFrame, pd.Series]:
+    logger.warning('Manually setting IDR floor of 1% in SSA.')
+    is_ssa_location = hierarchy['path_to_top_parent'].apply(lambda x: '166' in x.split(','))
+    ssa_location_ids = hierarchy.loc[is_ssa_location, 'location_id'].to_list()
+    
+    is_ssa_rmse = rmse['location_id'].isin(ssa_location_ids)
+    rmse.loc[is_ssa_rmse, 'rmse'] = np.nan
+    rmse.loc[is_ssa_rmse, 'floor'] = 0.01
+    
+    best_floor[ssa_location_ids] = 0.01
+    
+    return rmse, best_floor
+    
+
 def find_idr_floor(idr: pd.Series,
                    cumul_cases: pd.Series,
                    serosurveys: pd.Series,
                    population: pd.Series,
                    hierarchy: pd.DataFrame,
                    test_range: Tuple[int, int],
-                   ceiling: float,):
+                   ceiling: float,) -> Tuple[pd.DataFrame, pd.Series]:
     daily_cases = (cumul_cases
                    .sort_index()
                    .reset_index()
@@ -34,6 +50,8 @@ def find_idr_floor(idr: pd.Series,
     rmse = pd.concat(rmse_floor).reset_index(drop=True)
     
     best_floor = rmse.groupby('location_id').apply(lambda x: x.sort_values('rmse')['floor'].values[0]).rename('idr_floor')
+    
+    rmse, best_floor = manual_floor_setting(rmse, best_floor, hierarchy)
     
     return rmse, best_floor
 
