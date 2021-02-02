@@ -240,6 +240,12 @@ def prepare_model_data(hierarchy: pd.DataFrame,
     data['idr_se'] = 1
     data['logit_idr_se'] = 1
     
+    # assign variable for India subnationals
+    ind_in_hierarchy = hierarchy['path_to_top_parent'].apply(lambda x: '163' in x.split(','))
+    ind_location_ids = hierarchy.loc[ind_in_hierarchy, 'location_id'].to_list()
+    ind_in_data = data['location_id'].isin(ind_location_ids)
+    data['india'] = ind_in_data.astype(int)
+    
     #logger.info('Trimming out low and high testing points.')
     #data.loc[data['log_avg_daily_testing_rate'] < -7.75, 'is_outlier'] = 1
     

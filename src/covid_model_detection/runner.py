@@ -24,7 +24,7 @@ def main(app_metadata: cli_tools.Metadata,
     
     var_args = {'dep_var': 'logit_idr',
                 'dep_var_se': 'logit_idr_se',
-                'indep_vars': ['intercept', 'log_avg_daily_testing_rate'],  # , 'bias'
+                'indep_vars': ['intercept', 'log_avg_daily_testing_rate', 'india'],  # , 'bias'
                 'group_vars': ['intercept'],
                 'pred_exclude_vars': []}  # 'bias'
     pred_replace_dict = {'log_daily_testing_rate': 'log_avg_daily_testing_rate'}
