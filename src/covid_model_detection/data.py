@@ -167,36 +167,13 @@ def load_testing(testing_root: Path, pop_data: pd.DataFrame, hierarchy: pd.DataF
     data = data.sort_values(['location_id', 'date']).reset_index(drop=True)
     data['test_days'] = (data['date'] - data.groupby('location_id')['date'].transform(min)).dt.days + 1
     
-    # this is wildly ineffiicient, fix when less crazy...
-    logger.info('Getting average date of test.')
-    mean_date_data = []
-    for location_id in tqdm(data['location_id'].unique()):
-        mean_date_data.append(get_avg_date_of_test(data.loc[data['location_id'] == location_id]))
-    mean_date_data = pd.concat(mean_date_data)
-    data = data.merge(mean_date_data, how='left')
     data = data.merge(raw_data, how='left')
-    
     data = data.loc[:, ['location_id', 'date',
                         'daily_tests_raw', 'daily_tests',
                         'cumulative_tests_raw', 'cumulative_tests',
-                        'test_days', 'avg_date_of_test']]
+                        'test_days']]
     
     return data
-
-
-def get_avg_date_of_test(data: pd.DataFrame):
-    if data['daily_tests'].isnull().any():
-        data['avg_date_of_test'] = np.nan
-    else:
-        data = data.reset_index(drop=True)
-        mean_test_days = []
-        for i in range(len(data)):
-            mean_test_days.append(np.average(data.loc[:i, 'test_days'], weights=data.loc[:i,'daily_tests']))
-        mean_test_days = [int(np.round(mean_test_day)) for mean_test_day in mean_test_days]
-        mean_test_dates = [data.loc[data['test_days'] == mean_test_day, 'date'].item() for mean_test_day in mean_test_days]
-        data['avg_date_of_test'] = mean_test_dates
-    
-    return data.loc[:, ['location_id', 'date', 'avg_date_of_test']]
 
 
 def fill_dates(data: pd.DataFrame, interp_vars: List[str]) -> pd.DataFrame:
@@ -263,6 +240,12 @@ def prepare_model_data(hierarchy: pd.DataFrame,
     data['idr_se'] = 1
     data['logit_idr_se'] = 1
     
+    # assign variable for India subnationals
+    ind_in_hierarchy = hierarchy['path_to_top_parent'].apply(lambda x: '163' in x.split(','))
+    ind_location_ids = hierarchy.loc[ind_in_hierarchy, 'location_id'].to_list()
+    ind_in_data = data['location_id'].isin(ind_location_ids)
+    data['india'] = ind_in_data.astype(int)
+    
     #logger.info('Trimming out low and high testing points.')
     #data.loc[data['log_avg_daily_testing_rate'] < -7.75, 'is_outlier'] = 1
     
@@ -286,3 +269,31 @@ def prepare_model_data(hierarchy: pd.DataFrame,
     logger.info(f'Final model observations: {len(model_data)}')
     
     return data, model_data
+
+
+def determine_mean_date_of_infection(location_dates: List,
+                                     cumul_cases: pd.DataFrame,
+                                     pred_idr: pd.Series) -> pd.DataFrame:
+    daily_cases = (cumul_cases
+                   .sort_values(['location_id', 'date'])
+                   .groupby('location_id')
+                   .apply(lambda x: x.set_index('date')['cumulative_cases'].diff())
+                   .rename('daily_cases'))
+    daily_cases = (daily_cases
+                   .fillna(cumul_cases
+                           .set_index(['location_id', 'date'])
+                           .sort_index()
+                           .loc[:,'cumulative_cases']))
+    daily_infections = (daily_cases / pred_idr).rename('daily_infections').dropna()
+
+    dates_data = []
+    for location_id, date in location_dates:
+        data = daily_infections[location_id]
+        data = data.reset_index()
+        data = data.loc[data['date'] <= date].reset_index(drop=True)
+        avg_date_of_infection_idx = int(np.round(np.average(data.index, weights=data['daily_infections'])))
+        avg_date_of_infection = data.loc[avg_date_of_infection_idx, 'date']
+        dates_data.append(pd.DataFrame({'location_id':location_id, 'date':date, 'avg_date_of_infection':avg_date_of_infection}, index=[0]))
+    dates_data = pd.concat(dates_data).reset_index(drop=True)
+
+    return dates_data
