@@ -31,7 +31,7 @@ def aggregate_data_from_md(data: pd.DataFrame, hierarchy: pd.DataFrame, agg_var:
     md_data = data.loc[data['location_id'].isin(md_location_ids)]
     
     md_child_ids_lists = [(hierarchy
-                           .loc[is_md & (hierarchy['path_to_top_parent'].str.contains(f'{parent_location_id}')),
+                           .loc[is_md & (hierarchy['path_to_top_parent'].apply(lambda x: str(parent_location_id) in x.split(','))),
                                 'location_id']
                            .to_list()) for parent_location_id in parent_location_ids]
     parent_children_pairs = list(zip(parent_location_ids, md_child_ids_lists))
