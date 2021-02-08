@@ -7,12 +7,14 @@ from mrtool import MRData, LinearCovModel, MRBRT
 
 from covid_model_detection.utils import expit
 
+
 def idr_model(model_data: pd.DataFrame,
               dep_var: str,
               dep_var_se: str,
               indep_vars: List[str],
               group_vars: List[str],
               inlier_pct: float = 1.,
+              prior_dict: Dict = None,
               **kwargs) -> Tuple[MRBRT, pd.Series, pd.DataFrame]:
     mr_data = MRData(
         obs=model_data[dep_var].values,
@@ -23,7 +25,9 @@ def idr_model(model_data: pd.DataFrame,
     
     if len(set(group_vars) - set(indep_vars)) > 0:
         raise ValueError('RE vars must also be FE vars.')
-    cov_models = [LinearCovModel(indep_var, use_re=indep_var in group_vars) for indep_var in indep_vars]
+    if prior_dict is None:
+        prior_dict = {indep_var: {} for indep_var in indep_vars}
+    cov_models = [LinearCovModel(indep_var, use_re=indep_var in group_vars, **prior_dict[indep_var]) for indep_var in indep_vars]
 
     mr_model = MRBRT(mr_data, cov_models, inlier_pct=inlier_pct)
     mr_model.fit_model(outer_max_iter=500)
@@ -34,12 +38,15 @@ def idr_model(model_data: pd.DataFrame,
         index=indep_vars
     )
     location_ids = model_data['location_id'].unique()
-    random_effects_values = mr_model.extract_re(location_ids)
-    random_effects = pd.DataFrame(
-        data=random_effects_values,
-        columns=group_vars,
-        index=pd.Index(location_ids, name='location_id')
-    )
+    if group_vars:
+        random_effects_values = mr_model.extract_re(location_ids)
+        random_effects = pd.DataFrame(
+            data=random_effects_values,
+            columns=group_vars,
+            index=pd.Index(location_ids, name='location_id')
+        )
+    else:
+        random_effects = pd.DataFrame()
 
     # trimmed = pd.concat([model_data[['location_id', 'nid', 'date']],
     #                      pd.Series(mr_model.w_soln, name='trimmed')], axis=1)
@@ -115,3 +122,11 @@ def predict(all_data: pd.DataFrame,
         raise ValueError('Unexpected transformation of IDR in model; cannot predict.')
     
     return pred_data, pred_data_fe
+
+
+def r2_score(observed, predicted):
+    ss_res = np.sum((observed - predicted) ** 2)
+    ss_tot = np.sum((observed - np.mean(observed)) ** 2)
+    r2 = 1. - (ss_res / ss_tot)
+    
+    return r2

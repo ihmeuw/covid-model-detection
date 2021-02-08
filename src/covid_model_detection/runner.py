@@ -1,12 +1,13 @@
 from pathlib import Path
 import dill as pickle
+from loguru import logger
 
 import pandas as pd
 import numpy as np
 
 from covid_shared import cli_tools
 from covid_model_detection import data, model, idr_floor
-from covid_model_detection.utils import SERO_DAYS, PCR_DAYS
+from covid_model_detection.utils import SERO_DAYS, PCR_DAYS, logit
 
 ## TODO:
 ##     - timeline input (currently saying PCR positive is 11 days and antibody positive is 15)
@@ -24,8 +25,9 @@ def main(app_metadata: cli_tools.Metadata,
     
     var_args = {'dep_var': 'logit_idr',
                 'dep_var_se': 'logit_idr_se',
-                'indep_vars': ['intercept', 'log_avg_daily_testing_rate', 'india'],  # , 'bias'
-                'group_vars': ['intercept'],
+                'indep_vars': ['intercept', 'log_avg_daily_testing_rate'],  # , 'bias'
+                # 'group_vars': ['intercept', 'log_avg_daily_testing_rate'],
+                'group_vars': [],
                 'pred_exclude_vars': []}  # 'bias'
     pred_replace_dict = {'log_daily_testing_rate': 'log_avg_daily_testing_rate'}
     model_space_suffix = 'avg_testing'
@@ -54,6 +56,14 @@ def main(app_metadata: cli_tools.Metadata,
     all_data = all_data.merge(pred_idr_all_data_model_space.rename(f'pred_idr_{model_space_suffix}').reset_index())
     all_data = all_data.merge(pred_idr_all_data_model_space_fe.rename(f'pred_idr_fe_{model_space_suffix}').reset_index())
     all_data['in_model'] = all_data['data_id'].isin(model_data['data_id'].to_list()).astype(int)
+    
+    r2_data = all_data.loc[all_data['in_model'] == 1]
+    r2_linear = model.r2_score(r2_data['idr'], r2_data[f'pred_idr_{model_space_suffix}'])
+    r2_logit = model.r2_score(logit(r2_data['idr']), logit(r2_data[f'pred_idr_{model_space_suffix}']))
+    r2_fe_linear = model.r2_score(r2_data['idr'], r2_data[f'pred_idr_fe_{model_space_suffix}'])
+    r2_fe_logit = model.r2_score(logit(r2_data['idr']), logit(r2_data[f'pred_idr_fe_{model_space_suffix}']))
+    logger.info(f'R^2 of fixed effects: {r2_fe_logit}')
+    logger.info(f'R^2 including random effects: {r2_logit}')
     
     idr_rmse_data, idr_floor_data = idr_floor.find_idr_floor(
         idr=pred_idr.copy(),
