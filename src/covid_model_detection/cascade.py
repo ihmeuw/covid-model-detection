@@ -142,7 +142,7 @@ def predict_cascade(all_data: pd.DataFrame,
             pred_replace_dict=pred_replace_dict,
             **var_args
         )
-        pred_idr += [location_pred_idr]
+        pred_idr += [location_pred_idr.rename('idr_fe')]
     pred_idr = pd.concat(pred_idr)
     pred_idr_fe = pd.concat(pred_idr_fe)
     
