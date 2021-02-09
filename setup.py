@@ -23,6 +23,7 @@ if __name__ == "__main__":
         'seaborn',
         'numpy',
         'pandas',
+        'tables',
         'scipy',
         'tqdm',
         'pyyaml',
