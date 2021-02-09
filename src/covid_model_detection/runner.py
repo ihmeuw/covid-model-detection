@@ -6,13 +6,14 @@ import pandas as pd
 import numpy as np
 
 from covid_shared import cli_tools
-from covid_model_detection import data, model, idr_floor
+from covid_model_detection import data, cascade, model, idr_floor
 from covid_model_detection.utils import SERO_DAYS, PCR_DAYS, logit
 
 ## TODO:
 ##     - timeline input (currently saying PCR positive is 11 days and antibody positive is 15)
 ##     - add bias covariate(s)
 ##     - check aggregation
+##     - 
 
 def main(app_metadata: cli_tools.Metadata,
          model_inputs_root: Path, testing_root: Path,
@@ -43,16 +44,33 @@ def main(app_metadata: cli_tools.Metadata,
         **var_args
     )
     
-    mr_model, fixed_effects, random_effects = model.idr_model(model_data=model_data, **var_args)
-    pred_idr, pred_idr_fe = model.predict(all_data, hierarchy, fixed_effects, random_effects, pred_replace_dict, **var_args)
-
-    # pred_idr_all_data, _ = model.predict(all_data, hierarchy, fixed_effects, random_effects,
-    #                                      pred_replace_dict, **var_args)
-    pred_idr_all_data_model_space, pred_idr_all_data_model_space_fe = model.predict(
-        all_data, hierarchy, fixed_effects, random_effects,
-        {}, **var_args
+    mr_model_dicts, prior_dicts = cascade.run_cascade(
+        model_data=model_data,
+        hierarchy=hierarchy,
+        var_args=var_args,
+        level_lambdas={
+            0:2.,
+            1:2.,
+            2:2.,
+            3:2.,
+            4:2.,
+        },
     )
-    # all_data = all_data.merge(pred_idr_all_data.rename('pred_idr').reset_index())
+    
+    pred_idr, pred_idr_fe = cascade.predict_cascade(
+        all_data=all_data,
+        hierarchy=hierarchy,
+        mr_model_dicts=mr_model_dicts,
+        pred_replace_dict=pred_replace_dict,
+        var_args=var_args,
+    )
+    pred_idr_all_data_model_space, pred_idr_all_data_model_space_fe = cascade.predict_cascade(
+        all_data=all_data,
+        hierarchy=hierarchy,
+        mr_model_dicts=mr_model_dicts,
+        pred_replace_dict={},
+        var_args=var_args,
+    )
     all_data = all_data.merge(pred_idr_all_data_model_space.rename(f'pred_idr_{model_space_suffix}').reset_index())
     all_data = all_data.merge(pred_idr_all_data_model_space_fe.rename(f'pred_idr_fe_{model_space_suffix}').reset_index())
     all_data['in_model'] = all_data['data_id'].isin(model_data['data_id'].to_list()).astype(int)

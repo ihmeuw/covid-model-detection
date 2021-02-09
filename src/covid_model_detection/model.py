@@ -46,7 +46,7 @@ def idr_model(model_data: pd.DataFrame,
             index=pd.Index(location_ids, name='location_id')
         )
     else:
-        random_effects = pd.DataFrame()
+        random_effects = pd.DataFrame(index=pd.Index([], name='location_id'))
 
     # trimmed = pd.concat([model_data[['location_id', 'nid', 'date']],
     #                      pd.Series(mr_model.w_soln, name='trimmed')], axis=1)
