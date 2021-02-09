@@ -133,55 +133,10 @@ def main(app_metadata: cli_tools.Metadata,
     test_path = output_root / 'test_data.csv'
     test_data.to_csv(test_path, index=False)
     
-    model_path = output_root / 'idr_model.pkl'
+    model_path = output_root / 'idr_cascade_models.pkl'
     with model_path.open('wb') as file:
-        pickle.dump((mr_model, fixed_effects, random_effects), file, -1)
+        pickle.dump(mr_model_dicts, file, -1)
     
     pred_path = output_root / 'pred_idr.csv'
     pred_idr = pd.concat([pred_idr, pred_idr_fe], axis=1)
     pred_idr.reset_index().to_csv(pred_path, index=False)
-
-'''
-## SOME MISCELLANEOUS PLOTTING STUFF
-import matplotlib.pyplot as plt
-from covid_model_detection.utils import logit
-
-plot_data = all_data.loc[all_data['in_model'] == 1]
-fig, ax = plt.subplots(1, 2, figsize=(11, 8.5))
-ax[0].scatter(plot_data['idr'], plot_data['pred_idr_fe_avg_testing'])
-ax[0].plot((0, 1.), (0, 1.), color='red')
-ax[1].scatter(plot_data['idr'], plot_data['pred_idr_avg_testing'])
-ax[1].plot((0, 1.), (0, 1.), color='red')
-fig.show()
-
-plot_data = all_data.loc[all_data['in_model'] == 1]
-fig, ax = plt.subplots(1, 2, figsize=(11, 8.5))
-ax[0].scatter(logit(plot_data['idr']), logit(plot_data['pred_idr_fe_avg_testing']))
-ax[0].plot((-6, 8), (-6, 8), color='red')
-ax[1].scatter(logit(plot_data['idr']), logit(plot_data['pred_idr_avg_testing']))
-ax[1].plot((-6, 8), (-6, 8), color='red')
-ax[1].set_xlim(-6, 4)
-ax[1].set_ylim(-6, 4)
-fig.show()
-
-plot_data = all_data.loc[all_data['in_model'] == 1]
-plt.scatter(plot_data['log_avg_daily_testing_rate'],
-            (plot_data['idr'] - plot_data['pred_idr_fe_avg_testing']),
-            alpha=0.5)
-plt.axhline(0, linestyle='--', color='red')
-plt.show()
-
-plot_data = all_data.loc[all_data['in_model'] == 1]
-xmin = plot_data[indep_vars[:2]].sort_values(indep_vars[1]).values[0]
-ymin = (xmin * fixed_effects[:2]).sum()
-xmin = xmin[1]
-xmax = plot_data[indep_vars[:2]].sort_values(indep_vars[1]).values[-1]
-ymax = (xmax * fixed_effects[:2]).sum()
-xmax = xmax[1]
-plt.scatter(plot_data['log_avg_daily_testing_rate'],
-            plot_data['logit_idr'], alpha=0.25)
-plt.plot((xmin, xmax), (ymin, ymax), color='red')
-#plt.xlim(-9, -5.5)
-#plt.ylim(-4, 2)
-plt.show()
-'''
