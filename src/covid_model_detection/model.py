@@ -115,3 +115,11 @@ def predict(all_data: pd.DataFrame,
         raise ValueError('Unexpected transformation of IDR in model; cannot predict.')
     
     return pred_data, pred_data_fe
+
+
+def r2_score(observed, predicted):
+    ss_res = np.sum((observed - predicted) ** 2)
+    ss_tot = np.sum((observed - np.mean(observed)) ** 2)
+    r2 = 1. - (ss_res / ss_tot)
+    
+    return r2
