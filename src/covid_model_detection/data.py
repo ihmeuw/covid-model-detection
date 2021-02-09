@@ -165,7 +165,9 @@ def load_testing(testing_root: Path, pop_data: pd.DataFrame, hierarchy: pd.DataF
                            .apply(lambda x: x.diff()))
     data = data.dropna()
     data = data.sort_values(['location_id', 'date']).reset_index(drop=True)
-    data['test_days'] = (data['date'] - data.groupby('location_id')['date'].transform(min)).dt.days + 1
+    data['test_days'] = (data['date'] - data.groupby('location_id')['date'].transform(min)).dt.days
+    # add 1 so first day is 1, and another since we are starting at t+1
+    data['test_days'] = data['test_days'] + 2
     
     data = data.merge(raw_data, how='left')
     data = data.loc[:, ['location_id', 'date',
