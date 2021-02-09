@@ -58,11 +58,11 @@ def idr_model(model_data: pd.DataFrame,
 def predict(all_data: pd.DataFrame,
             hierarchy: pd.DataFrame,
             fixed_effects: pd.Series, random_effects: pd.DataFrame,
-            pred_replace_dict: Dict,
+            pred_replace_dict: Dict[str, str],
+            pred_exclude_vars: List[str],
             dep_var: str,
             indep_vars: List[str],
             group_vars: List[str],
-            pred_exclude_vars: List[str],
             **kwargs) -> pd.Series:
     keep_vars = list(pred_replace_dict.keys()) + indep_vars
     if len(set(keep_vars)) != len(keep_vars):

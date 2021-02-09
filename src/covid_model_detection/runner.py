@@ -12,7 +12,6 @@ from covid_model_detection.utils import SERO_DAYS, PCR_DAYS, logit
 ## TODO:
 ##     - timeline input (currently saying PCR positive is 11 days and antibody positive is 15)
 ##     - add bias covariate(s)
-##     - check aggregation
 
 def main(app_metadata: cli_tools.Metadata,
          model_inputs_root: Path, testing_root: Path,
@@ -25,11 +24,10 @@ def main(app_metadata: cli_tools.Metadata,
     
     var_args = {'dep_var': 'logit_idr',
                 'dep_var_se': 'logit_idr_se',
-                'indep_vars': ['intercept', 'log_avg_daily_testing_rate'],  # , 'bias'
-                # 'group_vars': ['intercept', 'log_avg_daily_testing_rate'],
-                'group_vars': [],
-                'pred_exclude_vars': []}  # 'bias'
+                'indep_vars': ['intercept', 'log_avg_daily_testing_rate', 'test_days'],
+                'group_vars': [],}
     pred_replace_dict = {'log_daily_testing_rate': 'log_avg_daily_testing_rate'}
+    pred_exclude_vars = ['bias']
     model_space_suffix = 'avg_testing'
     
     all_data, model_data = data.prepare_model_data(
@@ -61,6 +59,7 @@ def main(app_metadata: cli_tools.Metadata,
         hierarchy=hierarchy.copy(),
         mr_model_dicts=mr_model_dicts.copy(),
         pred_replace_dict=pred_replace_dict.copy(),
+        pred_exclude_vars=pred_exclude_vars.copy(),
         var_args=var_args.copy(),
     )
     pred_idr_all_data_model_space, pred_idr_all_data_model_space_fe = cascade.predict_cascade(
@@ -68,20 +67,13 @@ def main(app_metadata: cli_tools.Metadata,
         hierarchy=hierarchy.copy(),
         mr_model_dicts=mr_model_dicts.copy(),
         pred_replace_dict={},
+        pred_exclude_vars=[],
         var_args=var_args.copy(),
     )
     all_data = all_data.merge(pred_idr_all_data_model_space.rename(f'pred_idr_{model_space_suffix}').reset_index())
     all_data = all_data.merge(pred_idr_all_data_model_space_fe.rename(f'pred_idr_fe_{model_space_suffix}').reset_index())
     all_data['in_model'] = all_data['data_id'].isin(model_data['data_id'].to_list()).astype(int)
 
-    r2_data = all_data.loc[all_data['in_model'] == 1]
-    r2_linear = model.r2_score(r2_data['idr'], r2_data[f'pred_idr_{model_space_suffix}'])
-    r2_logit = model.r2_score(logit(r2_data['idr']), logit(r2_data[f'pred_idr_{model_space_suffix}']))
-    r2_fe_linear = model.r2_score(r2_data['idr'], r2_data[f'pred_idr_fe_{model_space_suffix}'])
-    r2_fe_logit = model.r2_score(logit(r2_data['idr']), logit(r2_data[f'pred_idr_fe_{model_space_suffix}']))
-    logger.info(f'R^2 of fixed effects: {r2_fe_logit}')
-    logger.info(f'R^2 including random effects: {r2_logit}')
-    
     r2_data = all_data.loc[all_data['in_model'] == 1]
     r2_linear = model.r2_score(r2_data['idr'], r2_data[f'pred_idr_{model_space_suffix}'])
     r2_logit = model.r2_score(logit(r2_data['idr']), logit(r2_data[f'pred_idr_{model_space_suffix}']))

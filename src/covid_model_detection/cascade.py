@@ -110,6 +110,7 @@ def predict_cascade(all_data: pd.DataFrame,
                     hierarchy: pd.DataFrame,
                     mr_model_dicts: Dict,
                     pred_replace_dict: Dict,
+                    pred_exclude_vars: List,
                     var_args: Dict,):
     logger.info('Compiling predictions.')
     random_effects = pd.DataFrame(index=pd.Index([], name='location_id'))
@@ -126,6 +127,7 @@ def predict_cascade(all_data: pd.DataFrame,
             fixed_effects=global_effect,
             random_effects=random_effects,
             pred_replace_dict=pred_replace_dict,
+            pred_exclude_vars=pred_exclude_vars,
             **var_args
         )
         pred_idr_fe += [location_pred_idr_fe.rename('idr_fe')]
@@ -140,6 +142,7 @@ def predict_cascade(all_data: pd.DataFrame,
             fixed_effects=location_specific_effect,
             random_effects=random_effects,
             pred_replace_dict=pred_replace_dict,
+            pred_exclude_vars=pred_exclude_vars,
             **var_args
         )
         pred_idr += [location_pred_idr]
