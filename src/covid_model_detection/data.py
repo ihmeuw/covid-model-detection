@@ -33,7 +33,7 @@ def load_serosurveys(model_inputs_root: Path) -> pd.DataFrame:
     data['date'] = pd.to_datetime(data['date'], format='%d.%m.%Y')
 
     # convert to m/l/u to 0-1, sample size to numeric
-    if not (data['units'].unique() == 'percentage').all():
+    if not (data['units'].str.lower().unique() == 'percentage').all():
         raise ValueError('Units other than percentage present.')
     data['lower'] = data['lower'].str.strip().replace('not specified', np.nan).astype(float)
     data['upper'] = data['upper'].str.strip().replace('not specified', np.nan).astype(float)

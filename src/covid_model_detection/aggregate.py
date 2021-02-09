@@ -8,8 +8,9 @@ def aggregate(data: pd.DataFrame, parent_id: int, md_child_ids: List[int], agg_v
     if data.empty:
         return data.loc[:, ['location_id', 'date', agg_var]]
     else:
+        n_md_locations = data['location_id'].unique().size
         data = data.groupby('date')[agg_var].agg(['sum','count'])
-        is_complete = data['count'] == data['count'].max()
+        is_complete = data['count'] == n_md_locations
         data = data.loc[is_complete, 'sum'].rename(agg_var).reset_index()
         data['location_id'] = parent_id
         
