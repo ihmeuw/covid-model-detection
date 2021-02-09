@@ -1,12 +1,13 @@
 from pathlib import Path
 import dill as pickle
+from loguru import logger
 
 import pandas as pd
 import numpy as np
 
 from covid_shared import cli_tools
 from covid_model_detection import data, model, idr_floor
-from covid_model_detection.utils import SERO_DAYS, PCR_DAYS
+from covid_model_detection.utils import SERO_DAYS, PCR_DAYS, logit
 
 ## TODO:
 ##     - timeline input (currently saying PCR positive is 11 days and antibody positive is 15)
