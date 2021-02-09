@@ -13,7 +13,6 @@ from covid_model_detection.utils import SERO_DAYS, PCR_DAYS, logit
 ##     - timeline input (currently saying PCR positive is 11 days and antibody positive is 15)
 ##     - add bias covariate(s)
 ##     - check aggregation
-##     - 
 
 def main(app_metadata: cli_tools.Metadata,
          model_inputs_root: Path, testing_root: Path,
@@ -34,42 +33,42 @@ def main(app_metadata: cli_tools.Metadata,
     model_space_suffix = 'avg_testing'
     
     all_data, model_data = data.prepare_model_data(
-        hierarchy=hierarchy,
-        sero_data=sero_data,
-        case_data=case_data,
-        test_data=test_data,
-        pop_data=pop_data,
+        hierarchy=hierarchy.copy(),
+        sero_data=sero_data.copy(),
+        case_data=case_data.copy(),
+        test_data=test_data.copy(),
+        pop_data=pop_data.copy(),
         pcr_days=PCR_DAYS,
         sero_days=SERO_DAYS,
         **var_args
     )
     
     mr_model_dicts, prior_dicts = cascade.run_cascade(
-        model_data=model_data,
-        hierarchy=hierarchy,
-        var_args=var_args,
+        model_data=model_data.copy(),
+        hierarchy=hierarchy.copy(),
+        var_args=var_args.copy(),
         level_lambdas={
-            0:2.,
-            1:2.,
-            2:2.,
-            3:2.,
-            4:2.,
+            0: 2.,
+            1: 2.,
+            2: 2.,
+            3: 2.,
+            4: 2.,
         },
     )
     
     pred_idr, pred_idr_fe = cascade.predict_cascade(
-        all_data=all_data,
-        hierarchy=hierarchy,
-        mr_model_dicts=mr_model_dicts,
-        pred_replace_dict=pred_replace_dict,
-        var_args=var_args,
+        all_data=all_data.copy(),
+        hierarchy=hierarchy.copy(),
+        mr_model_dicts=mr_model_dicts.copy(),
+        pred_replace_dict=pred_replace_dict.copy(),
+        var_args=var_args.copy(),
     )
     pred_idr_all_data_model_space, pred_idr_all_data_model_space_fe = cascade.predict_cascade(
-        all_data=all_data,
-        hierarchy=hierarchy,
-        mr_model_dicts=mr_model_dicts,
+        all_data=all_data.copy(),
+        hierarchy=hierarchy.copy(),
+        mr_model_dicts=mr_model_dicts.copy(),
         pred_replace_dict={},
-        var_args=var_args,
+        var_args=var_args.copy(),
     )
     all_data = all_data.merge(pred_idr_all_data_model_space.rename(f'pred_idr_{model_space_suffix}').reset_index())
     all_data = all_data.merge(pred_idr_all_data_model_space_fe.rename(f'pred_idr_fe_{model_space_suffix}').reset_index())
