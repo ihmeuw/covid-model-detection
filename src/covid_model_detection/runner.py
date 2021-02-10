@@ -16,6 +16,8 @@ from covid_model_detection.utils import SERO_DAYS, PCR_DAYS, logit
 def main(app_metadata: cli_tools.Metadata,
          model_inputs_root: Path, testing_root: Path,
          output_root: Path, n_draws: int):
+    np.random.seed(34251)
+    
     hierarchy = data.load_hierarchy(model_inputs_root)
     pop_data = data.load_population(model_inputs_root)
     sero_data = data.load_serosurveys(model_inputs_root)
