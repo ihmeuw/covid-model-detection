@@ -12,6 +12,7 @@ from covid_model_detection.utils import SERO_DAYS, PCR_DAYS, logit
 ## TODO:
 ##     - timeline input (currently saying PCR positive is 11 days and antibody positive is 15)
 ##     - add bias covariate(s)
+##     - write out some more metadata stuff (in different file)
 
 def main(app_metadata: cli_tools.Metadata,
          model_inputs_root: Path, testing_root: Path,
@@ -26,10 +27,11 @@ def main(app_metadata: cli_tools.Metadata,
     
     var_args = {'dep_var': 'logit_idr',
                 'dep_var_se': 'logit_idr_se',
-                'indep_vars': ['intercept', 'log_avg_daily_testing_rate', 'test_days'],
+                'indep_vars': ['intercept', 'log_avg_daily_testing_rate'],  # , 'test_days'
+                'prior_dict': {'log_avg_daily_testing_rate':{'prior_beta_uniform':np.array([0, np.inf])}},
                 'group_vars': [],}
     pred_replace_dict = {'log_daily_testing_rate': 'log_avg_daily_testing_rate'}
-    pred_exclude_vars = ['bias']
+    pred_exclude_vars = []
     model_space_suffix = 'avg_testing'
     
     all_data, model_data = data.prepare_model_data(
@@ -48,11 +50,11 @@ def main(app_metadata: cli_tools.Metadata,
         hierarchy=hierarchy.copy(),
         var_args=var_args.copy(),
         level_lambdas={
-            0: 2.,
-            1: 2.,
-            2: 2.,
-            3: 2.,
-            4: 2.,
+            0: 1000.,
+            1: 1000.,
+            2: 1000.,
+            3: 1000.,
+            4: 1000.,
         },
     )
     

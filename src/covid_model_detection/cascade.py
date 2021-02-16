@@ -1,5 +1,6 @@
 from typing import Dict, List, Tuple
 from loguru import logger
+from copy import deepcopy
 
 import pandas as pd
 import numpy as np
@@ -81,10 +82,16 @@ def run_level(level_lambda: int,
 
 
 def run_location(model_data: pd.DataFrame, prior_dict: Dict, level_lambda: int, var_args: Dict):
+    location_var_args = deepcopy(var_args)
+    combined_prior_dict = {}
+    for data_var in list(set(location_var_args['indep_vars'] + location_var_args['group_vars'])):
+        location_prior_dict = prior_dict.get(data_var)
+        global_prior_dict = location_var_args['prior_dict'].get(data_var, {})
+        combined_prior_dict.update({data_var: {**location_prior_dict, **global_prior_dict}})
+    location_var_args['prior_dict'] = combined_prior_dict
     mr_model, *_ = model.idr_model(
         model_data=model_data,
-        prior_dict=prior_dict,
-        **var_args
+        **location_var_args
     )
     model_specs = extract_simple_lme_specs(mr_model)
     beta_mean = model_specs.beta_soln
@@ -115,7 +122,8 @@ def predict_cascade(all_data: pd.DataFrame,
     logger.info('Compiling predictions.')
     random_effects = pd.DataFrame(index=pd.Index([], name='location_id'))
     modeled_locations = list(mr_model_dicts.keys())
-    model_location_map = {l: find_nearest_modeled_parent(p, modeled_locations) for l, p in zip(hierarchy['location_id'].to_list(), hierarchy['path_to_top_parent'].to_list())}
+    model_location_map = {l: find_nearest_modeled_parent(p, modeled_locations) for l, p in zip(hierarchy['location_id'].to_list(),
+                                                                                               hierarchy['path_to_top_parent'].to_list())}
     
     pred_idr = []
     pred_idr_fe = []
