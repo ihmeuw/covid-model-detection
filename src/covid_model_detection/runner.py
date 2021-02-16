@@ -50,11 +50,11 @@ def main(app_metadata: cli_tools.Metadata,
         hierarchy=hierarchy.copy(),
         var_args=var_args.copy(),
         level_lambdas={
-            0: 1000.,
-            1: 1000.,
-            2: 1000.,
-            3: 1000.,
-            4: 1000.,
+            0: 10.,
+            1: 10.,
+            2: 10.,
+            3: 10.,
+            4: 10.,
         },
     )
     
@@ -143,3 +143,5 @@ def main(app_metadata: cli_tools.Metadata,
     pred_path = output_root / 'pred_idr.csv'
     pred_idr = pd.concat([pred_idr, pred_idr_fe], axis=1)
     pred_idr.reset_index().to_csv(pred_path, index=False)
+
+    logger.info(f'Model run complete -- {str(output_root)}.')
