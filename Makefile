@@ -14,8 +14,8 @@ clean:
 
 install_env:
 	( \
-	git clone git@github.com:zhengp0/limetr.git && \
-        git clone git@github.com:ihmeuw-msca/MRTool.git && \
+        git clone https://github.com/zhengp0/limetr.git && \
+        git clone https://github.com/ihmeuw-msca/MRTool.git && \
         source $(CONDA_PREFIX)/etc/profile.d/conda.sh && \
 		conda create -n $(ENV_NAME) -y -c conda-forge python=3.7 cyipopt gmp && \
 		conda activate $(ENV_NAME) && \
