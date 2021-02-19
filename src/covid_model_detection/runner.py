@@ -28,7 +28,8 @@ def main(app_metadata: cli_tools.Metadata,
     var_args = {'dep_var': 'logit_idr',
                 'dep_var_se': 'logit_idr_se',
                 'indep_vars': ['intercept', 'log_avg_daily_testing_rate'],  # , 'test_days'
-                'prior_dict': {'log_avg_daily_testing_rate':{'prior_beta_uniform':np.array([0, np.inf])}},
+                'prior_dict': {# 'intercept':{'prior_beta_uniform':np.array([logit(0.75), np.inf])},
+                               'log_avg_daily_testing_rate':{'prior_beta_uniform':np.array([0, np.inf])},},
                 'group_vars': [],}
     pred_replace_dict = {'log_daily_testing_rate': 'log_avg_daily_testing_rate'}
     pred_exclude_vars = []
@@ -83,8 +84,12 @@ def main(app_metadata: cli_tools.Metadata,
     r2_logit = model.r2_score(logit(r2_data['idr']), logit(r2_data[f'pred_idr_{model_space_suffix}']))
     r2_fe_linear = model.r2_score(r2_data['idr'], r2_data[f'pred_idr_fe_{model_space_suffix}'])
     r2_fe_logit = model.r2_score(logit(r2_data['idr']), logit(r2_data[f'pred_idr_fe_{model_space_suffix}']))
-    logger.info(f'R^2 of fixed effects: {r2_fe_logit}')
-    logger.info(f'R^2 including random effects: {r2_logit}')
+    if var_args['dep_var'].startswith('logit'):
+        logger.info(f'R^2 of fixed effects: {r2_fe_logit}')
+        logger.info(f'R^2 including random effects: {r2_logit}')
+    else:
+        logger.info(f'R^2 of fixed effects: {r2_fe_linear}')
+        logger.info(f'R^2 including random effects: {r2_linear}')
     
     idr_rmse_data, idr_floor_data = idr_floor.find_idr_floor(
         idr=pred_idr.copy(),
