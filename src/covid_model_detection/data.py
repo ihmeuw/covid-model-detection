@@ -45,7 +45,8 @@ def load_serosurveys(model_inputs_root: Path) -> pd.DataFrame:
     data['bias'] = data['bias'].str.strip().replace(('unchecked', 'not specified'), np.nan).astype(float)
     
     outliers = []
-    manual_outlier = data['manual_outlier'].fillna(0)
+    data['manual_outlier'] = data['manual_outlier'].fillna(0)
+    manual_outlier = data['manual_outlier']
     outliers.append(manual_outlier)
     logger.info(f'{manual_outlier.sum()} rows from sero data flagged as outliers in ETL.')
     ## ## ## ## ## ## ## ## ## ## ## ## ## ## ##
@@ -243,10 +244,33 @@ def prepare_model_data(hierarchy: pd.DataFrame,
     data['logit_idr_se'] = 1
     
     # assign variable for India subnationals
-    ind_in_hierarchy = hierarchy['path_to_top_parent'].apply(lambda x: '163' in x.split(','))
-    ind_location_ids = hierarchy.loc[ind_in_hierarchy, 'location_id'].to_list()
-    ind_in_data = data['location_id'].isin(ind_location_ids)
-    data['india'] = ind_in_data.astype(int)
+    if 'india' in indep_vars:
+        ind_in_hierarchy = hierarchy['path_to_top_parent'].apply(lambda x: '163' in x.split(','))
+        ind_location_ids = hierarchy.loc[ind_in_hierarchy, 'location_id'].to_list()
+        ind_in_data = data['location_id'].isin(ind_location_ids).astype(int)
+        if 'log_avg_daily_testing_rate' in indep_vars:
+            data['india'] = ind_in_data
+            data['india_test_cov'] = ind_in_data * data['log_avg_daily_testing_rate']
+            data['log_avg_daily_testing_rate'] *= np.abs(1 - ind_in_data)
+            
+            data['india_test_cov_pred'] = ind_in_data * data['log_daily_testing_rate']
+            data['log_daily_testing_rate'] *= np.abs(1 - ind_in_data)
+        else:
+            raise ValueError('Did not find expected slope variable for India covariate.')
+    if 'ssa' in indep_vars:
+        ssa_in_hierarchy = hierarchy['path_to_top_parent'].apply(lambda x: '166' in x.split(','))
+        ssa_location_ids = hierarchy.loc[ssa_in_hierarchy, 'location_id'].to_list()
+        ssa_in_data = data['location_id'].isin(ssa_location_ids).astype(int)
+        if 'log_avg_daily_testing_rate' in indep_vars:
+            data['ssa'] = ssa_in_data
+            data['ssa_test_cov'] = ssa_in_data * data['log_avg_daily_testing_rate']
+            data['log_avg_daily_testing_rate'] *= np.abs(1 - ssa_in_data)
+            
+            data['ssa_test_cov_pred'] = ssa_in_data * data['log_daily_testing_rate']
+            data['log_daily_testing_rate'] *= np.abs(1 - ssa_in_data)
+        else:
+            raise ValueError('Did not find expected slope variable for SSA covariate.')
+
     
     #logger.info('Trimming out low and high testing points.')
     #data.loc[data['log_avg_daily_testing_rate'] < -7.75, 'is_outlier'] = 1

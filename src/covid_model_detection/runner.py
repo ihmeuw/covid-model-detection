@@ -25,10 +25,14 @@ def main(app_metadata: cli_tools.Metadata,
     
     var_args = {'dep_var': 'logit_idr',
                 'dep_var_se': 'logit_idr_se',
-                'indep_vars': ['intercept', 'log_avg_daily_testing_rate', 'india'],  # , 'bias'
+                'indep_vars': ['intercept', 'log_avg_daily_testing_rate',  # , 'bias'
+                               'india', 'india_test_cov',
+                               'ssa', 'ssa_test_cov',],
                 'group_vars': ['intercept', 'log_avg_daily_testing_rate'],
                 'pred_exclude_vars': []}  # 'bias'
-    pred_replace_dict = {'log_daily_testing_rate': 'log_avg_daily_testing_rate'}
+    pred_replace_dict = {'log_daily_testing_rate': 'log_avg_daily_testing_rate',
+                         'india_test_cov_pred': 'india_test_cov',
+                         'ssa_test_cov_pred': 'ssa_test_cov',}
     model_space_suffix = 'avg_testing'
     
     all_data, model_data = data.prepare_model_data(
@@ -45,13 +49,10 @@ def main(app_metadata: cli_tools.Metadata,
     mr_model, fixed_effects, random_effects = model.idr_model(model_data=model_data, **var_args)
     pred_idr, pred_idr_fe = model.predict(all_data, hierarchy, fixed_effects, random_effects, pred_replace_dict, **var_args)
 
-    # pred_idr_all_data, _ = model.predict(all_data, hierarchy, fixed_effects, random_effects,
-    #                                      pred_replace_dict, **var_args)
     pred_idr_all_data_model_space, pred_idr_all_data_model_space_fe = model.predict(
         all_data, hierarchy, fixed_effects, random_effects,
         {}, **var_args
     )
-    # all_data = all_data.merge(pred_idr_all_data.rename('pred_idr').reset_index())
     all_data = all_data.merge(pred_idr_all_data_model_space.rename(f'pred_idr_{model_space_suffix}').reset_index())
     all_data = all_data.merge(pred_idr_all_data_model_space_fe.rename(f'pred_idr_fe_{model_space_suffix}').reset_index())
     all_data['in_model'] = all_data['data_id'].isin(model_data['data_id'].to_list()).astype(int)
@@ -121,48 +122,3 @@ def main(app_metadata: cli_tools.Metadata,
     pred_path = output_root / 'pred_idr.csv'
     pred_idr = pd.concat([pred_idr, pred_idr_fe], axis=1)
     pred_idr.reset_index().to_csv(pred_path, index=False)
-
-'''
-## SOME MISCELLANEOUS PLOTTING STUFF
-import matplotlib.pyplot as plt
-from covid_model_detection.utils import logit
-
-plot_data = all_data.loc[all_data['in_model'] == 1]
-fig, ax = plt.subplots(1, 2, figsize=(11, 8.5))
-ax[0].scatter(plot_data['idr'], plot_data['pred_idr_fe_avg_testing'])
-ax[0].plot((0, 1.), (0, 1.), color='red')
-ax[1].scatter(plot_data['idr'], plot_data['pred_idr_avg_testing'])
-ax[1].plot((0, 1.), (0, 1.), color='red')
-fig.show()
-
-plot_data = all_data.loc[all_data['in_model'] == 1]
-fig, ax = plt.subplots(1, 2, figsize=(11, 8.5))
-ax[0].scatter(logit(plot_data['idr']), logit(plot_data['pred_idr_fe_avg_testing']))
-ax[0].plot((-6, 8), (-6, 8), color='red')
-ax[1].scatter(logit(plot_data['idr']), logit(plot_data['pred_idr_avg_testing']))
-ax[1].plot((-6, 8), (-6, 8), color='red')
-ax[1].set_xlim(-6, 4)
-ax[1].set_ylim(-6, 4)
-fig.show()
-
-plot_data = all_data.loc[all_data['in_model'] == 1]
-plt.scatter(plot_data['log_avg_daily_testing_rate'],
-            (plot_data['idr'] - plot_data['pred_idr_fe_avg_testing']),
-            alpha=0.5)
-plt.axhline(0, linestyle='--', color='red')
-plt.show()
-
-plot_data = all_data.loc[all_data['in_model'] == 1]
-xmin = plot_data[indep_vars[:2]].sort_values(indep_vars[1]).values[0]
-ymin = (xmin * fixed_effects[:2]).sum()
-xmin = xmin[1]
-xmax = plot_data[indep_vars[:2]].sort_values(indep_vars[1]).values[-1]
-ymax = (xmax * fixed_effects[:2]).sum()
-xmax = xmax[1]
-plt.scatter(plot_data['log_avg_daily_testing_rate'],
-            plot_data['logit_idr'], alpha=0.25)
-plt.plot((xmin, xmax), (ymin, ymax), color='red')
-#plt.xlim(-9, -5.5)
-#plt.ylim(-4, 2)
-plt.show()
-'''
