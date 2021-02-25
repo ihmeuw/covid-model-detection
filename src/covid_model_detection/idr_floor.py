@@ -83,7 +83,8 @@ def test_floor_value(idr: pd.Series,
     idr = (idr
            .reset_index()
            .groupby('location_id')
-           .apply(lambda x: rescale_idr(x, floor, ceiling)))
+           .apply(lambda x: rescale_idr(x, floor, ceiling))
+           .rename('idr'))
     
     daily_infections = daily_cases / idr
     daily_infections = daily_infections.dropna()

@@ -111,7 +111,8 @@ def main(app_metadata: cli_tools.Metadata,
                 .join(idr_floor_data, how='left'))
     pred_idr = (pred_idr
                 .groupby('location_id')
-                .apply(lambda x: idr_floor.rescale_idr(x.loc[:, ['date', 'idr']], x['idr_floor'].unique().item(), ceiling=1)))
+                .apply(lambda x: idr_floor.rescale_idr(x.loc[:, ['date', 'idr']], x['idr_floor'].unique().item(), ceiling=1))
+                .rename('idr'))
     
     data_path = output_root / 'all_data.csv'
     all_data.to_csv(data_path, index=False)
