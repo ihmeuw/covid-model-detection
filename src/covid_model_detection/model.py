@@ -60,16 +60,17 @@ def predict(all_data: pd.DataFrame,
     keep_vars = list(pred_replace_dict.keys()) + indep_vars
     if len(set(keep_vars)) != len(keep_vars):
         raise ValueError('Duplicate in replace_var + indep_vars.')
-    pred_data = (all_data
-                 .loc[:, ['location_id', 'date'] + keep_vars]
+    pred_data = all_data.copy()
+    pred_data = pred_data.drop(list(pred_replace_dict.values()), axis=1)
+    pred_data = pred_data.rename(columns=pred_replace_dict)
+    pred_data = (pred_data
+                 .loc[:, ['location_id', 'date'] + indep_vars]
                  .dropna()
                  .drop_duplicates()
                  .set_index(['location_id', 'date'])
                  .sort_index())
     for pred_exclude_var in pred_exclude_vars:
         pred_data[pred_exclude_var] = 0
-    pred_data = pred_data.drop(list(pred_replace_dict.values()), axis=1)
-    pred_data = pred_data.rename(columns=pred_replace_dict)
     pred_data_fe = (pred_data
                     .multiply(fixed_effects)
                     .dropna()
