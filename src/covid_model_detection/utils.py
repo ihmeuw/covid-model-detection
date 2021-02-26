@@ -2,6 +2,7 @@ import numpy as np
 
 SERO_DAYS = 15
 PCR_DAYS = 11
+DEATH_DAYS = 24
 
 
 def logit(p):

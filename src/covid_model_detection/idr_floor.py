@@ -39,11 +39,11 @@ def find_idr_floor(idr: pd.Series,
     
     rmse_floor = []
     for floor in range(*test_range):        
-        rmse = test_floor_value(idr=idr,
-                                daily_cases=daily_cases,
-                                serosurveys=serosurveys,
-                                population=population,
-                                hierarchy=hierarchy,
+        rmse = test_floor_value(idr=idr.copy(),
+                                daily_cases=daily_cases.copy(),
+                                serosurveys=serosurveys.copy(),
+                                population=population.copy(),
+                                hierarchy=hierarchy.copy(),
                                 floor=floor/100,
                                 ceiling=ceiling,)
         rmse_floor.append(rmse.reset_index())
@@ -55,7 +55,22 @@ def find_idr_floor(idr: pd.Series,
     
     return rmse, best_floor
 
+
+def rescale_idr(idr: pd.DataFrame, floor: float, ceiling: float) -> pd.Series:
+    if floor > idr['idr'].min():
+        squeeze_floor = floor
+    else:
+        squeeze_floor = 0
+    if ceiling < idr['idr'].max():
+        squeeze_ceiling = ceiling
+    else:
+        squeeze_ceiling = 1
+    idr = pd.Series(np.percentile((squeeze_floor * 100, squeeze_ceiling * 100), idr['idr'] * 100) / 100,
+                    index=idr['date'])
     
+    return idr
+
+
 def test_floor_value(idr: pd.Series,
                      daily_cases: pd.Series,
                      serosurveys: pd.Series,
@@ -63,8 +78,15 @@ def test_floor_value(idr: pd.Series,
                      hierarchy: pd.DataFrame,
                      floor: float,
                      ceiling: float,) -> pd.DataFrame:
-    logger.info(f'Testing {int(floor*100)}% IDR floor.')
-    daily_infections = daily_cases / idr.clip(floor, ceiling)
+    logger.info(f'Testing IDR: {int(floor*100)}% floor; {int(ceiling*100)}% ceiling.')
+    
+    idr = (idr
+           .reset_index()
+           .groupby('location_id')
+           .apply(lambda x: rescale_idr(x, floor, ceiling))
+           .rename('idr'))
+    
+    daily_infections = daily_cases / idr
     daily_infections = daily_infections.dropna()
     cumul_infections = daily_infections.groupby('location_id').cumsum()
     seroprevalence = (cumul_infections / population).rename('seroprev_mean_pred')
