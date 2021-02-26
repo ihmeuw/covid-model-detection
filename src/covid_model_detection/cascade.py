@@ -97,7 +97,6 @@ def run_location(model_data: pd.DataFrame, prior_dict: Dict, level_lambda: int, 
     beta_mean = model_specs.beta_soln
     beta_std = np.sqrt(np.diag(np.linalg.inv(extract_simple_lme_hessian(model_specs))))
     beta_std *= np.array([level_lambda[iv] for iv in location_var_args['indep_vars']])
-    import pdb; pdb.set_trace()
     beta_soln = np.vstack([beta_mean, beta_std])
     prior_dict = {indep_var:{'prior_beta_gaussian':beta_soln[:,[i]]} for \
                   i, indep_var in enumerate(var_args['indep_vars'])}
