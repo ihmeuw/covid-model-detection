@@ -38,11 +38,11 @@ def main(app_metadata: cli_tools.Metadata,
                 'group_vars': [],
                 }
     level_lambdas = {
-        0: {'intercept': 1.,   'log_infwavg_daily_testing_rate': 10.,},
-        1: {'intercept': 0.01, 'log_infwavg_daily_testing_rate': 10.,},
-        2: {'intercept': 0.01, 'log_infwavg_daily_testing_rate': 10.,},
-        3: {'intercept': 0.01, 'log_infwavg_daily_testing_rate': 10.,},
-        4: {'intercept': 0.01, 'log_infwavg_daily_testing_rate': 10.,},
+        0: {'intercept': 1.,  'log_infwavg_daily_testing_rate': 10.,},
+        1: {'intercept': 0.1, 'log_infwavg_daily_testing_rate': 10.,},
+        2: {'intercept': 0.1, 'log_infwavg_daily_testing_rate': 10.,},
+        3: {'intercept': 0.1, 'log_infwavg_daily_testing_rate': 10.,},
+        4: {'intercept': 0.1, 'log_infwavg_daily_testing_rate': 10.,},
     }
     pred_replace_dict = {'log_daily_testing_rate': 'log_infwavg_daily_testing_rate',
                          # 'india_test_cov_pred': 'india_test_cov',
