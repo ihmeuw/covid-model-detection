@@ -38,11 +38,11 @@ def main(app_metadata: cli_tools.Metadata,
                 'group_vars': [],
                 }
     level_lambdas = {
-        0: {'intercept': 1.,  'log_infwavg_daily_testing_rate': 10.,},
-        1: {'intercept': 0.1, 'log_infwavg_daily_testing_rate': 10.,},
-        2: {'intercept': 0.1, 'log_infwavg_daily_testing_rate': 10.,},
-        3: {'intercept': 0.1, 'log_infwavg_daily_testing_rate': 10.,},
-        4: {'intercept': 0.1, 'log_infwavg_daily_testing_rate': 10.,},
+        0: {'intercept': 10., 'log_infwavg_daily_testing_rate': 10.,},
+        1: {'intercept': 10., 'log_infwavg_daily_testing_rate': 10.,},
+        2: {'intercept': 10., 'log_infwavg_daily_testing_rate': 10.,},
+        3: {'intercept': 10., 'log_infwavg_daily_testing_rate': 10.,},
+        4: {'intercept': 10., 'log_infwavg_daily_testing_rate': 10.,},
     }
     pred_replace_dict = {'log_daily_testing_rate': 'log_infwavg_daily_testing_rate',
                          # 'india_test_cov_pred': 'india_test_cov',
@@ -110,7 +110,7 @@ def main(app_metadata: cli_tools.Metadata,
         serosurveys=all_data.loc[all_data['in_model'] == 1].set_index(['location_id', 'date'])['seroprev_mean'].copy(),
         population=pop_data.set_index('location_id')['population'].copy(),
         hierarchy=hierarchy.copy(),
-        test_range=(1, 9),
+        test_range=[0.1] + list(range(1, 9)),
         ceiling=1.,
     )
     pred_idr = (pred_idr
