@@ -27,15 +27,14 @@ def main(app_metadata: cli_tools.Metadata,
     var_args = {'dep_var': 'logit_idr',
                 'dep_var_se': 'logit_idr_se',
                 'indep_vars': ['intercept', 'log_infwavg_daily_testing_rate',  # , 'bias'
-                               #'india', 'india_test_cov',
-                               #'ssa',
-                               'ssa_test_cov',
+                               # 'india_test_cov',
+                               # 'ssa_test_cov',
                               ],
                 'group_vars': ['log_infwavg_daily_testing_rate'],
                 'pred_exclude_vars': []}  # 'bias'
     pred_replace_dict = {'log_daily_testing_rate': 'log_infwavg_daily_testing_rate',
-                         #'india_test_cov_pred': 'india_test_cov',
-                         'ssa_test_cov_pred': 'ssa_test_cov',
+                         # 'india_test_cov_pred': 'india_test_cov',
+                         # 'ssa_test_cov_pred': 'ssa_test_cov',
                         }
     model_space_suffix = 'infwavg_testing'
     
@@ -63,6 +62,8 @@ def main(app_metadata: cli_tools.Metadata,
     )
     '''
     # ADD DEFAULT DIAGNOSTIC PLOTS
+    from covid_model_detection.utils import expit
+    import matplotlib.pyplot as plt
     plot_data = all_data.merge(pred_idr.rename('pred_idr').reset_index(),
                                how='left')
     plot_data = plot_data.merge(pred_idr_all_data_model_space.rename(f'pred_idr_{model_space_suffix}').reset_index(),
@@ -102,7 +103,7 @@ def main(app_metadata: cli_tools.Metadata,
         serosurveys=all_data.loc[all_data['in_model'] == 1].set_index(['location_id', 'date'])['seroprev_mean'].copy(),
         population=pop_data.set_index('location_id')['population'].copy(),
         hierarchy=hierarchy.copy(),
-        test_range=(0, 11),
+        test_range=(1, 9),
         ceiling=1.,
     )
     pred_idr = (pred_idr
