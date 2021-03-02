@@ -35,14 +35,14 @@ def load_serosurveys(model_inputs_root: Path) -> pd.DataFrame:
     # convert to m/l/u to 0-1, sample size to numeric
     if not (data['units'].str.lower().unique() == 'percentage').all():
         raise ValueError('Units other than percentage present.')
-    data['lower'] = data['lower'].str.strip().replace('not specified', np.nan).astype(float)
-    data['upper'] = data['upper'].str.strip().replace('not specified', np.nan).astype(float)
+    data['lower'] = data['lower'].str.lower().strip().replace('not specified', np.nan).astype(float)
+    data['upper'] = data['upper'].str.lower().strip().replace('not specified', np.nan).astype(float)
     data['seroprev_mean'] = data['value'] / 100
     data['seroprev_lower'] = data['lower'] / 100
     data['seroprev_upper'] = data['upper'] / 100
-    data['sample_size'] = data['sample_size'].str.strip().replace(('unchecked', 'not specified'), np.nan).astype(float)
+    data['sample_size'] = data['sample_size'].str.lower().strip().replace(('unchecked', 'not specified'), np.nan).astype(float)
     
-    data['bias'] = data['bias'].str.strip().replace(('unchecked', 'not specified'), np.nan).astype(float)
+    data['bias'] = data['bias'].str.lower().strip().replace(('unchecked', 'not specified'), np.nan).astype(float)
     
     outliers = []
     data['manual_outlier'] = data['manual_outlier'].fillna(0)
@@ -70,8 +70,8 @@ def load_serosurveys(model_inputs_root: Path) -> pd.DataFrame:
     #    Final solution: ...
     max_start_age = 20
     min_end_age = 60
-    data['study_start_age'] = data['study_start_age'].str.strip().replace('not specified', np.nan).astype(float)
-    data['study_end_age'] = data['study_end_age'].str.strip().replace('not specified', np.nan).astype(float)
+    data['study_start_age'] = data['study_start_age'].str.lower().strip().replace('not specified', np.nan).astype(float)
+    data['study_end_age'] = data['study_end_age'].str.lower().strip().replace('not specified', np.nan).astype(float)
     too_old = data['study_start_age'] > 20
     too_young = data['study_end_age'] < min_end_age
     age_outlier = (too_old  | too_young).astype(int)
@@ -83,11 +83,11 @@ def load_serosurveys(model_inputs_root: Path) -> pd.DataFrame:
     #    Question: Use of geo_accordance?
     #    Current approach: Drop non-represeentative (geo_accordance == 0).
     #    Final solution: ...
-    data['geo_accordance'] = data['geo_accordance'].str.strip().replace(('unchecked', np.nan), '0').astype(int)
+    data['geo_accordance'] = data['geo_accordance'].str.lower().strip().replace(('unchecked', np.nan), '0').astype(int)
     geo_outlier = data['geo_accordance'] == 0
     outliers.append(geo_outlier)
     logger.info(f'{geo_outlier.sum()} rows from sero data do not have `geo_accordance`.')
-    data['correction_status'] == data['correction_status'].str.strip().replace(('unchecked', np.nan), '0').astype(int)
+    data['correction_status'] == data['correction_status'].str.lower().strip().replace(('unchecked', np.nan), '0').astype(int)
     ## ## ## ## ## ## ## ## ## ## ## ## ## ## ##
 
     keep_columns = ['nid', 'location_id', 'date',
