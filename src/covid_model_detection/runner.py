@@ -27,14 +27,14 @@ def main(app_metadata: cli_tools.Metadata,
     var_args = {'dep_var': 'logit_idr',
                 'dep_var_se': 'logit_idr_se',
                 'indep_vars': ['intercept', 'log_infwavg_daily_testing_rate',  # , 'bias'
-                               # 'india_test_cov',
-                               # 'ssa_test_cov',
+                               'india', 'india_test_cov',
+                               'ssa', 'ssa_test_cov',
                               ],
                 'group_vars': ['log_infwavg_daily_testing_rate'],
                 'pred_exclude_vars': []}  # 'bias'
     pred_replace_dict = {'log_daily_testing_rate': 'log_infwavg_daily_testing_rate',
-                         # 'india_test_cov_pred': 'india_test_cov',
-                         # 'ssa_test_cov_pred': 'ssa_test_cov',
+                         'india_test_cov_pred': 'india_test_cov',
+                         'ssa_test_cov_pred': 'ssa_test_cov',
                         }
     model_space_suffix = 'infwavg_testing'
     
