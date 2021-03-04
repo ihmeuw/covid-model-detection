@@ -14,15 +14,18 @@ from covid_model_detection.utils import SERO_DAYS, PCR_DAYS, logit
 ##     - add bias covariate(s)
 ##     - check aggregation
 ##     - deal w/ observations of IDR > 1
+##     - routine diagnostic plots + model parameters that include comparison to previouos
 
 def main(app_metadata: cli_tools.Metadata,
          model_inputs_root: Path, testing_root: Path,
          output_root: Path, n_draws: int):
-    hierarchy = data.load_hierarchy(model_inputs_root)
+    np.random.seed(34251)
+    
+    hierarchy, cov_hierarchy = data.load_hierarchies(model_inputs_root)
     pop_data = data.load_population(model_inputs_root)
     sero_data = data.load_serosurveys(model_inputs_root)
     case_data = data.load_cases(model_inputs_root, hierarchy)
-    test_data = data.load_testing(testing_root, pop_data, hierarchy)
+    test_data = data.load_testing(testing_root, pop_data)
     
     var_args = {'dep_var': 'logit_idr',
                 'dep_var_se': 'logit_idr_se',
@@ -37,11 +40,11 @@ def main(app_metadata: cli_tools.Metadata,
     model_space_suffix = 'avg_testing'
     
     all_data, model_data = data.prepare_model_data(
-        hierarchy=hierarchy,
-        sero_data=sero_data,
-        case_data=case_data,
-        test_data=test_data,
-        pop_data=pop_data,
+        hierarchy=hierarchy.copy(),
+        sero_data=sero_data.copy(),
+        case_data=case_data.copy(),
+        test_data=test_data.copy(),
+        pop_data=pop_data.copy(),
         pcr_days=PCR_DAYS,
         sero_days=SERO_DAYS,
         **var_args
@@ -71,7 +74,7 @@ def main(app_metadata: cli_tools.Metadata,
         cumul_cases=case_data.set_index(['location_id', 'date'])['cumulative_cases'].copy(),
         serosurveys=all_data.loc[all_data['in_model'] == 1].set_index(['location_id', 'date'])['seroprev_mean'].copy(),
         population=pop_data.set_index('location_id')['population'].copy(),
-        hierarchy=hierarchy.copy(),
+        hierarchy=cov_hierarchy.copy(),
         test_range=(2, 9),
         ceiling=0.7,
     )

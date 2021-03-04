@@ -134,22 +134,7 @@ def load_cases(model_inputs_root:Path, hierarchy: pd.DataFrame) -> pd.DataFrame:
     return data
 
 
-def load_testing(testing_root: Path, pop_data: pd.DataFrame, hierarchy: pd.DataFrame) -> pd.DataFrame:
-    raw_data = pd.read_csv(testing_root / 'data_smooth.csv')
-    raw_data['date'] = pd.to_datetime(raw_data['date'])
-    raw_data = (raw_data
-                .loc[:, ['location_id', 'date', 'daily_total_reported']]
-                .dropna()
-                .reset_index(drop=True))
-    raw_data['cumulative_tests_raw'] = raw_data.groupby('location_id')['daily_total_reported'].cumsum()
-    raw_data = (raw_data.groupby('location_id', as_index=False)
-                .apply(lambda x: fill_dates(x, ['cumulative_tests_raw']))
-                .reset_index(drop=True))
-    raw_data['daily_tests_raw'] = (raw_data
-                                   .groupby('location_id')['cumulative_tests_raw']
-                                   .apply(lambda x: x.diff())
-                                   .fillna(raw_data['cumulative_tests_raw']))
-    
+def load_testing(testing_root: Path, pop_data: pd.DataFrame) -> pd.DataFrame:
     data = pd.read_csv(testing_root / 'forecast_raked_test_pc_simple.csv')
     data['date'] = pd.to_datetime(data['date'])
     data = data.sort_values(['location_id', 'date']).reset_index(drop=True)
@@ -165,8 +150,6 @@ def load_testing(testing_root: Path, pop_data: pd.DataFrame, hierarchy: pd.DataF
     data = (data.groupby('location_id', as_index=False)
             .apply(lambda x: fill_dates(x, ['cumulative_tests']))
             .reset_index(drop=True))
-    logger.info('Aggregating testing data.')
-    data = aggregate_data_from_md(data, hierarchy, 'cumulative_tests')
     data = data.sort_values(['location_id', 'date']).reset_index(drop=True)
     data['daily_tests'] = (data
                            .groupby('location_id')['cumulative_tests']
@@ -177,10 +160,8 @@ def load_testing(testing_root: Path, pop_data: pd.DataFrame, hierarchy: pd.DataF
     # add 1 so first day is 1, and another since we are starting at t+1
     data['test_days'] = data['test_days'] + 2
     
-    data = data.merge(raw_data, how='left')
     data = data.loc[:, ['location_id', 'date',
-                        'daily_tests_raw', 'daily_tests',
-                        'cumulative_tests_raw', 'cumulative_tests',
+                        'daily_tests', 'cumulative_tests',
                         'test_days']]
     
     return data
@@ -196,11 +177,14 @@ def fill_dates(data: pd.DataFrame, interp_vars: List[str]) -> pd.DataFrame:
     return data[['location_id', 'date'] + interp_vars]
 
 
-def load_hierarchy(model_inputs_root:Path) -> pd.DataFrame:
+def load_hierarchies(model_inputs_root:Path) -> pd.DataFrame:
     data = pd.read_csv(model_inputs_root / 'locations' / 'modeling_hierarchy.csv')
     data = data.sort_values('sort_order').reset_index(drop=True)
     
-    return data
+    cov_data = pd.read_csv(model_inputs_root / 'locations' / 'covariate_with_aggregates_hierarchy.csv')
+    cov_data = cov_data.sort_values('sort_order').reset_index(drop=True)
+    
+    return data, cov_data
 
 
 def load_population(model_inputs_root: Path) -> pd.DataFrame:
