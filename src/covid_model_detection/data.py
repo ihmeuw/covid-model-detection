@@ -94,7 +94,7 @@ def load_serosurveys(model_inputs_root: Path) -> pd.DataFrame:
     geo_outlier = data['geo_accordance'] == 0
     outliers.append(geo_outlier)
     logger.info(f'{geo_outlier.sum()} rows from sero data do not have `geo_accordance`.')
-    data['correction_status'] == str_fmt(data['correction_status']).replace(('unchecked', np.nan), '0').astype(int)
+    data['correction_status'] == str_fmt(data['correction_status']).replace(('unchecked', 'not specified', np.nan), '0').astype(int)
     ## ## ## ## ## ## ## ## ## ## ## ## ## ## ##
 
     keep_columns = ['nid', 'location_id', 'date',
