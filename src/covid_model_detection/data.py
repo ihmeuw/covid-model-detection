@@ -157,6 +157,7 @@ def load_testing(testing_root: Path, pop_data: pd.DataFrame, hierarchy: pd.DataF
     data = data.dropna()
     data = data.sort_values(['location_id', 'date']).reset_index(drop=True)
     data['testing_capacity'] = data.groupby('location_id')['daily_tests'].cummax()
+    logger.info('Aggregating testing capacity data.')
     testing_capacity_data = aggregate_data_from_md(data.loc[:, ['location_id', 'date', 'testing_capacity']].copy(),
                                                    hierarchy, 'testing_capacity')
     del data['testing_capacity']
