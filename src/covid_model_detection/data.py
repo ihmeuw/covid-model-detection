@@ -135,21 +135,6 @@ def load_output_measure(model_inputs_root:Path, measure: str, hierarchy: pd.Data
 
 
 def load_testing(testing_root: Path, pop_data: pd.DataFrame, hierarchy: pd.DataFrame) -> pd.DataFrame:
-    # raw_data = pd.read_csv(testing_root / 'data_smooth.csv')
-    # raw_data['date'] = pd.to_datetime(raw_data['date'])
-    # raw_data = (raw_data
-    #             .loc[:, ['location_id', 'date', 'daily_total_reported']]
-    #             .dropna()
-    #             .reset_index(drop=True))
-    # raw_data['cumulative_tests_raw'] = raw_data.groupby('location_id')['daily_total_reported'].cumsum()
-    # raw_data = (raw_data.groupby('location_id', as_index=False)
-    #             .apply(lambda x: fill_dates(x, ['cumulative_tests_raw']))
-    #             .reset_index(drop=True))
-    # raw_data['daily_tests_raw'] = (raw_data
-    #                                .groupby('location_id')['cumulative_tests_raw']
-    #                                .apply(lambda x: x.diff())
-    #                                .fillna(raw_data['cumulative_tests_raw']))
-    
     data = pd.read_csv(testing_root / 'forecast_raked_test_pc_simple.csv')
     data['date'] = pd.to_datetime(data['date'])
     data = data.sort_values(['location_id', 'date']).reset_index(drop=True)
@@ -165,23 +150,22 @@ def load_testing(testing_root: Path, pop_data: pd.DataFrame, hierarchy: pd.DataF
     data = (data.groupby('location_id', as_index=False)
             .apply(lambda x: fill_dates(x, ['cumulative_tests']))
             .reset_index(drop=True))
-    logger.info('Aggregating testing data.')
-    data = aggregate_data_from_md(data, hierarchy, 'cumulative_tests')
     data = data.sort_values(['location_id', 'date']).reset_index(drop=True)
     data['daily_tests'] = (data
                            .groupby('location_id')['cumulative_tests']
                            .apply(lambda x: x.diff()))
     data = data.dropna()
     data = data.sort_values(['location_id', 'date']).reset_index(drop=True)
-    data['test_days'] = (data['date'] - data.groupby('location_id')['date'].transform(min)).dt.days
-    # add 1 so first day is 1, and another since we are starting at t+1
-    data['test_days'] = data['test_days'] + 2
+    data['testing_capacity'] = data.groupby('location_id')['daily_tests'].cummax()
+    testing_capacity_data = aggregate_data_from_md(data.loc[:, ['location_id', 'date', 'testing_capacity']].copy(),
+                                                   hierarchy, 'testing_capacity')
+    del data['testing_capacity']
+    data = data.merge(testing_capacity_data, how='left')
     
-    # data = data.merge(raw_data, how='left')
     data = data.loc[:, ['location_id', 'date',
-                        'daily_tests',  # 'daily_tests_raw',
-                        'cumulative_tests',  # 'cumulative_tests_raw',
-                        'test_days']]
+                        'daily_tests',
+                        'testing_capacity',
+                        'cumulative_tests',]]
     
     return data
 
@@ -198,8 +182,9 @@ def load_ifr(infection_fatality_root: Path) -> pd.DataFrame:
     return data
 
 
-def load_infections(model_inputs_root:Path, infection_fatality_root: Path, hierarchy: pd.DataFrame) -> pd.DataFrame:
-    logger.info('Providing 7-day rolling average of deaths / IFR as infections (indexed on date of death).')
+def load_infections(model_inputs_root:Path, infection_fatality_root: Path, hierarchy: pd.DataFrame,
+                    death_days: int,) -> pd.DataFrame:
+    logger.info('Providing 7-day rolling average of deaths / IFR as infections.')
     cumul_deaths = load_output_measure(model_inputs_root, 'deaths', hierarchy)
 
     ifr = load_ifr(infection_fatality_root)
@@ -220,6 +205,8 @@ def load_infections(model_inputs_root:Path, infection_fatality_root: Path, hiera
     cumul_infections['cumulative_infections'] = cumul_infections.groupby('location_id')['daily_infections'].cumsum()
     del cumul_infections['daily_infections']
     cumul_infections = aggregate_data_from_md(cumul_infections, hierarchy, 'cumulative_infections')
+    
+    cumul_infections['date'] -= pd.Timedelta(days=death_days)
         
     daily_infections = (cumul_infections
                         .sort_values(['location_id', 'date'])
@@ -259,19 +246,37 @@ def load_population(model_inputs_root: Path) -> pd.DataFrame:
     return data
 
 
-def get_infection_weighted_avg_testing(infections: pd.DataFrame, tests: pd.DataFrame) -> pd.DataFrame:
-    data = pd.concat([tests, infections], axis=1)
-    data = data.loc[data['daily_tests'].notnull()]
-    data['daily_infections'] = data['daily_infections'].fillna(method='bfill')
+def get_infection_weighted_avg_testing(infections: pd.DataFrame, tests: pd.DataFrame, varname: str) -> pd.DataFrame:
+    data = pd.concat([tests.rename('tests'), infections.rename('infections')], axis=1)
+    data = data.loc[data['tests'].notnull()]
+    data['infections'] = data['infections'].fillna(method='bfill')
     if data.isnull().any().any():
-        raise ValueError(f"Missing tail infections for location_id {data.reset_index()['location_id'].unique().item()}.")
+        #raise ValueError(f"Missing tail infections for location_id {data.reset_index()['location_id'].unique().item()}.")
+        logger.warning(f"Missing tail infections for location_id {data.reset_index()['location_id'].unique().item()}.")
+        data['infections'] = data['infections'].fillna(method='ffill')
     if not data.empty:
-        infwavg_tests = np.average(data['daily_tests'], weights=(data['daily_infections'] + 1))
+        infwavg_tests = np.average(data['tests'], weights=(data['infections'] + 1))
 
-        return pd.DataFrame({'infwavg_daily_tests':infwavg_tests},
+        return pd.DataFrame({varname:infwavg_tests},
                             index=data.index[[-1]])
     else:
         return pd.DataFrame()
+    
+
+def add_location_fes(data: pd.DataFrame, parent_id: int, loc_label: str, hierarchy: pd.DataFrame,
+                     model_test_var: str, pred_test_var: str, indep_vars: List[str]):
+    parent_in_hierarchy = hierarchy['path_to_top_parent'].apply(lambda x: str(parent_id) in x.split(','))
+    child_location_ids = hierarchy.loc[parent_in_hierarchy, 'location_id'].to_list()
+    child_data = data['location_id'].isin(child_location_ids).astype(int)
+    data[loc_label] = child_data
+    if f'{loc_label}_test_cov' in indep_vars:
+        data[f'{loc_label}_test_cov'] = child_data * data[model_test_var]
+        data[model_test_var] *= np.abs(1 - child_data)
+
+        data[f'{loc_label}_test_cov_pred'] = child_data * data[pred_test_var]
+        data[pred_test_var] *= np.abs(1 - child_data)
+        
+    return data
 
 
 def prepare_model_data(hierarchy: pd.DataFrame,
@@ -282,7 +287,6 @@ def prepare_model_data(hierarchy: pd.DataFrame,
                        pop_data: pd.DataFrame,
                        pcr_days: int,
                        sero_days: int,
-                       death_days: int,
                        dep_var: str,
                        dep_var_se: str,
                        indep_vars: List[str], **kwargs) -> pd.DataFrame:
@@ -300,9 +304,8 @@ def prepare_model_data(hierarchy: pd.DataFrame,
     
     data['cumulative_case_rate'] = data['cumulative_cases'] / data['population']
     
-    infection_data['date'] -= pd.Timedelta(days=death_days-pcr_days)
+    infection_data['date'] += pd.Timedelta(days=pcr_days)
     sero_location_dates = sero_data[['location_id', 'date']].drop_duplicates()
-    sero_location_dates = sero_location_dates.loc[sero_location_dates['location_id'] != 79]
     sero_location_dates = list(zip(sero_location_dates['location_id'], sero_location_dates['date']))
     infwavg_daily_tests = []
     for location_id, date in sero_location_dates:
@@ -315,17 +318,17 @@ def prepare_model_data(hierarchy: pd.DataFrame,
                 (test_data
                  .loc[(test_data['location_id']==location_id) & (test_data['date'] <= date)]
                  .set_index(['location_id', 'date'])
-                 .loc[:, 'daily_tests'])
+                 .loc[:, 'testing_capacity']),
+                'infwavg_testing_capacity'
             )
         )
     infwavg_daily_tests = pd.concat(infwavg_daily_tests)
     data = data.merge(infwavg_daily_tests.reset_index(), how='left')
     
-    data['log_avg_daily_testing_rate'] = np.log(data['cumulative_tests'] / (data['population'] * data['test_days']))
-    data['daily_testing_rate'] = data['daily_tests'] / data['population']
-    data['infwavg_daily_testing_rate'] = data['infwavg_daily_tests'] / data['population']
-    data['log_daily_testing_rate'] = np.log(data['daily_testing_rate'])
-    data['log_infwavg_daily_testing_rate'] = np.log(data['infwavg_daily_testing_rate'])
+    data['testing_rate_capacity'] = data['testing_capacity'] / data['population']
+    data['infwavg_testing_rate_capacity'] = data['infwavg_testing_capacity'] / data['population']
+    data['log_testing_rate_capacity'] = np.log(data['testing_rate_capacity'])
+    data['log_infwavg_testing_rate_capacity'] = np.log(data['infwavg_testing_rate_capacity'])
     
     data['intercept'] = 1
     data['idr'] = data['cumulative_case_rate'] / data['seroprev_mean']
@@ -337,35 +340,14 @@ def prepare_model_data(hierarchy: pd.DataFrame,
     data['idr_se'] = 1
     data['logit_idr_se'] = 1
     
-    # assign variable for India subnationals
-    ind_in_hierarchy = hierarchy['path_to_top_parent'].apply(lambda x: '163' in x.split(','))
-    ind_location_ids = hierarchy.loc[ind_in_hierarchy, 'location_id'].to_list()
-    ind_in_data = data['location_id'].isin(ind_location_ids).astype(int)
-    data['india'] = ind_in_data
-    if 'india_test_cov' in indep_vars and 'log_infwavg_daily_testing_rate' in indep_vars:
-        data['india_test_cov'] = ind_in_data * data['log_infwavg_daily_testing_rate']
-        data['log_infwavg_daily_testing_rate'] *= np.abs(1 - ind_in_data)
-
-        data['india_test_cov_pred'] = ind_in_data * data['log_daily_testing_rate']
-        data['log_daily_testing_rate'] *= np.abs(1 - ind_in_data)
-    elif 'india_test_cov' in indep_vars:
-        raise ValueError('Did not find expected slope variable for India covariate.')
+    # assign variable for India, SSA, and Mexico
+    for parent_id, loc_label in [(163, 'india'), (166, 'ssa'), (130, 'mexico')]:
+        data = add_location_fes(data,
+                                parent_id, loc_label,
+                                hierarchy,
+                                'log_infwavg_testing_rate_capacity', 'log_testing_rate_capacity',
+                                indep_vars)
         
-    # assign variable for SSA locations
-    ssa_in_hierarchy = hierarchy['path_to_top_parent'].apply(lambda x: '166' in x.split(','))
-    ssa_location_ids = hierarchy.loc[ssa_in_hierarchy, 'location_id'].to_list()
-    ssa_in_data = data['location_id'].isin(ssa_location_ids).astype(int)
-    data['ssa'] = ssa_in_data
-    if 'ssa_test_cov' in indep_vars and 'log_infwavg_daily_testing_rate' in indep_vars:
-        data['ssa_test_cov'] = ssa_in_data * data['log_infwavg_daily_testing_rate']
-        data['log_infwavg_daily_testing_rate'] *= np.abs(1 - ssa_in_data)
-
-        data['ssa_test_cov_pred'] = ssa_in_data * data['log_daily_testing_rate']
-        data['log_daily_testing_rate'] *= np.abs(1 - ssa_in_data)
-    elif 'ssa_test_cov' in indep_vars:
-        raise ValueError('Did not find expected slope variable for SSA covariate.')
-
-    
     #logger.info('Trimming out low and high testing points.')
     #data.loc[data['log_avg_daily_testing_rate'] < -7.75, 'is_outlier'] = 1
     

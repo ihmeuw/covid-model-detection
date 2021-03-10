@@ -13,7 +13,7 @@ from covid_model_detection.utils import SERO_DAYS, PCR_DAYS, DEATH_DAYS, logit
 ##     - timeline input (currently saying PCR positive is 11 days and antibody positive is 15)
 ##     - add bias covariate(s)
 ##     - check aggregation
-##     - deal w/ observations of IDR > 1
+##     - deal w/ observations of IDR > 1 in better way
 
 def main(app_metadata: cli_tools.Metadata,
          model_inputs_root: Path, testing_root: Path, infection_fatality_root: Path,
@@ -23,20 +23,21 @@ def main(app_metadata: cli_tools.Metadata,
     sero_data = data.load_serosurveys(model_inputs_root)
     case_data = data.load_output_measure(model_inputs_root, 'cases', hierarchy)
     test_data = data.load_testing(testing_root, pop_data, hierarchy)
-    infection_data = data.load_infections(model_inputs_root, infection_fatality_root, hierarchy)
+    infection_data = data.load_infections(model_inputs_root, infection_fatality_root, hierarchy, DEATH_DAYS)
     
     var_args = {'dep_var': 'logit_idr',
                 'dep_var_se': 'logit_idr_se',
-                'indep_vars': ['intercept', 'log_infwavg_daily_testing_rate',  # , 'bias'
-                               'india', 'india_test_cov',
-                               'ssa', 'ssa_test_cov',
+                'indep_vars': ['intercept', 'log_infwavg_testing_rate_capacity',  # , 'bias'
+                               'india_test_cov',
+                               'ssa_test_cov',
+                               'mexico_test_cov',
                               ],
-                'group_vars': ['log_infwavg_daily_testing_rate'],
-                'pred_exclude_vars': []}  # 'bias'
-    pred_replace_dict = {'log_daily_testing_rate': 'log_infwavg_daily_testing_rate',
+                'group_vars': ['intercept', 'log_infwavg_testing_rate_capacity',],
+                'pred_exclude_vars': [],}  # 'bias'
+    pred_replace_dict = {'log_testing_rate_capacity': 'log_infwavg_testing_rate_capacity',
                          'india_test_cov_pred': 'india_test_cov',
                          'ssa_test_cov_pred': 'ssa_test_cov',
-                        }
+                         'mexico_test_cov_pred': 'mexico_test_cov',}
     model_space_suffix = 'infwavg_testing'
     
     all_data, model_data = data.prepare_model_data(
@@ -48,7 +49,6 @@ def main(app_metadata: cli_tools.Metadata,
         pop_data=pop_data.copy(),
         pcr_days=PCR_DAYS,
         sero_days=SERO_DAYS,
-        death_days=DEATH_DAYS,
         **var_args
     )
     
@@ -61,27 +61,7 @@ def main(app_metadata: cli_tools.Metadata,
         all_data, hierarchy, fixed_effects, random_effects,
         {}, **var_args
     )
-    '''
-    # ADD DEFAULT DIAGNOSTIC PLOTS
-    from covid_model_detection.utils import expit
-    import matplotlib.pyplot as plt
-    plot_data = all_data.merge(pred_idr.rename('pred_idr').reset_index(),
-                               how='left')
-    plot_data = plot_data.merge(pred_idr_all_data_model_space.rename(f'pred_idr_{model_space_suffix}').reset_index(),
-                                how='left')
-    plot_data = plot_data.loc[plot_data['seroprev_mean'].notnull()]
-    plot_data = plot_data.loc[plot_data['idr'] <= 1]
-
-    plt.scatter(plot_data['infwavg_daily_testing_rate'], plot_data['idr'])
-    plt.show()
-
-    plt.scatter(plot_data['log_infwavg_daily_testing_rate'], plot_data['logit_idr'])
-    plt.show()
-
-    plt.scatter(expit(plot_data['logit_idr']), plot_data['pred_idr_infwavg_testing'])
-    plt.plot((0, 1), (0, 1), color='red')
-    plt.show()
-    '''
+    
     all_data = all_data.merge(pred_idr_all_data_model_space.rename(f'pred_idr_{model_space_suffix}').reset_index(),
                               how='left')
     all_data = all_data.merge(pred_idr_all_data_model_space_fe.rename(f'pred_idr_fe_{model_space_suffix}').reset_index(),
@@ -104,7 +84,7 @@ def main(app_metadata: cli_tools.Metadata,
         serosurveys=all_data.loc[all_data['in_model'] == 1].set_index(['location_id', 'date'])['seroprev_mean'].copy(),
         population=pop_data.set_index('location_id')['population'].copy(),
         hierarchy=hierarchy.copy(),
-        test_range=(1, 9),
+        test_range=(1, 6),
         ceiling=1.,
     )
     pred_idr = (pred_idr
@@ -159,7 +139,7 @@ def main(app_metadata: cli_tools.Metadata,
     with model_path.open('wb') as file:
         pickle.dump((mr_model, fixed_effects, random_effects), file, -1)
     
-    # only save most-detailed predictions for IDR until aggregation post-scaling can be applied
+    # only save most-detailed predictions for IDR until post-model aggregation can be applied
     pred_path = output_root / 'pred_idr.csv'
     md_locs = hierarchy.loc[hierarchy['most_detailed'] == 1, 'location_id'].to_list()
     md_locs = [i for i in md_locs if i in all_data['location_id']]

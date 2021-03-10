@@ -100,6 +100,8 @@ def test_floor_value(idr: pd.Series,
                       name='rmse',
                       index=pd.Index([], name='location_id'))
     for location_id in tqdm(hierarchy.sort_values('level')['location_id']):
+        if location_id == 137:  # only print log for super region, but below we do sub for region as well
+            logger.info('Using global floor for NA/ME region.')
         in_path = hierarchy['path_to_top_parent'].apply(lambda x: str(location_id) in x.split(','))
         child_ids = hierarchy.loc[in_path, 'location_id'].to_list()
         is_location = hierarchy['location_id'] == location_id
@@ -107,8 +109,8 @@ def test_floor_value(idr: pd.Series,
         # check if location_id is present
         if location_id in residuals.reset_index()['location_id'].to_list():
             rmse = np.sqrt((residuals[location_id]**2).mean())
-        # check if children are present
-        elif any([l in residuals.reset_index()['location_id'].to_list() for l in child_ids]):
+        # check if children are present (excluding NA/ME super region and region)
+        elif location_id not in [137, 138] and any([l in residuals.reset_index()['location_id'].to_list() for l in child_ids]):
             child_residuals = residuals.reset_index()
             child_residuals = (child_residuals
                                .loc[child_residuals['location_id'].isin(child_ids)]
