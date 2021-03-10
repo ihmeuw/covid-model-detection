@@ -14,6 +14,7 @@ from covid_model_detection.utils import SERO_DAYS, PCR_DAYS, DEATH_DAYS, logit
 ##     - add bias covariate(s)
 ##     - check aggregation
 ##     - deal w/ observations of IDR > 1 in better way
+##     - hold max value in squeeze during floor setting?
 
 def main(app_metadata: cli_tools.Metadata,
          model_inputs_root: Path, testing_root: Path, infection_fatality_root: Path,
