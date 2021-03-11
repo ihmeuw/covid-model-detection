@@ -21,6 +21,11 @@ warnings.simplefilter('ignore')
               default=paths.BEST_LINK,
               help=('Which version of the testing estimates to use. '
                     'May be a full path or relative to the standard testing root.'))
+@click.option('-f', '--infection-fatality-version',
+              type=click.Path(file_okay=False),
+              default=paths.BEST_LINK,
+              help=('Which version of the infection-fatality rate (IFR) data to use. '
+                    'May be a full path or relative to the standard IFR root.'))
 @click.option('-o', '--output-root',
               type=click.Path(file_okay=False),
               default=paths.INFECTION_DETECTION_RATE_ROOT,
@@ -37,7 +42,7 @@ warnings.simplefilter('ignore')
               help='Tags this run as a production run.')
 @cli_tools.add_verbose_and_with_debugger
 def run_idr(run_metadata,
-            model_inputs_version, testing_version,
+            model_inputs_version, testing_version, infection_fatality_version,
             output_root, n_draws,
             mark_dir_as_best, production_tag,
             verbose, with_debugger):
@@ -47,8 +52,11 @@ def run_idr(run_metadata,
                                                            last_stage_root=paths.MODEL_INPUTS_ROOT)
     testing_root = cli_tools.get_last_stage_directory(testing_version,
                                                       last_stage_root=paths.TESTING_OUTPUT_ROOT)
+    infection_fatality_root = cli_tools.get_last_stage_directory(infection_fatality_version,
+                                                                 last_stage_root=paths.INFECTION_FATALITY_RATIO_ROOT)
     run_metadata.update_from_path('model_inputs_metadata', model_inputs_root / paths.METADATA_FILE_NAME)
     run_metadata.update_from_path('testing_metadata', testing_root / paths.METADATA_FILE_NAME)
+    run_metadata.update_from_path('ifr_metadata', infection_fatality_root / paths.METADATA_FILE_NAME)
 
     output_root = Path(output_root).resolve()
     cli_tools.setup_directory_structure(output_root, with_production=True)
@@ -57,7 +65,7 @@ def run_idr(run_metadata,
     cli_tools.configure_logging_to_files(run_directory)
 
     main = cli_tools.monitor_application(runner.main, logger, with_debugger)
-    app_metadata, _ = main(model_inputs_root, testing_root, run_directory, n_draws)
+    app_metadata, _ = main(model_inputs_root, testing_root, infection_fatality_root, run_directory, n_draws)
 
     cli_tools.finish_application(run_metadata, app_metadata, run_directory,
                                  mark_dir_as_best, production_tag)
