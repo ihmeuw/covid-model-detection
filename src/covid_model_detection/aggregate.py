@@ -18,8 +18,8 @@ def aggregate(data: pd.DataFrame, parent_id: int, md_child_ids: List[int], agg_v
 
 
 def aggregate_data_from_md(data: pd.DataFrame, hierarchy: pd.DataFrame, agg_var: str) -> pd.Series:
-    if not agg_var.startswith('cumulative'):
-        raise ValueError('Expecting cumulative data (double check logic is applicable if used on daily).')
+    # if not agg_var.startswith('cumulative'):
+    #     raise ValueError('Expecting cumulative data (double check logic is applicable if used on daily).')
     if data[agg_var].max() < 1:
         raise ValueError(f'Data in {agg_var} looks like rates - need counts for aggregation.')
     
