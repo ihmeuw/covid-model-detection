@@ -37,6 +37,7 @@ def load_serosurveys(model_inputs_root: Path) -> pd.DataFrame:
     data.loc[(data['location_id'] == 570) & (data['date'] == '11.08.2021'), 'date'] = '11.08.2020'
     data.loc[(data['location_id'] == 533) & (data['date'] == '13.11.2.2020'), 'date'] = '13.11.2020'
     data.loc[data['date'] == '05.21.2020', 'date'] = '21.05.2020'
+    data.loc[data['date'] == '31.09.2020', 'date'] = '01.10.2020'
     data['date'] = pd.to_datetime(data['date'], format='%d.%m.%Y')
 
     # convert to m/l/u to 0-1, sample size to numeric
